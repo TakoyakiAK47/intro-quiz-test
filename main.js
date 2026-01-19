@@ -1,22 +1,20 @@
 /* ============================================================
-   Blue Archive イントロクイズ - main.js (Sound Archive Update)
+   Blue Archive イントロクイズ - main.js (Added Sound Archive Mode)
    ============================================================ */
 
 const NEXT_QUESTION_DELAY = 1000;
 const GAME_OVER_DELAY = 1000;
 const EXTENDED_RESULT_DELAY = 2000;
 
-// [追加] ARCHIVE モードを定義
 const GAME_MODES = {
     MENU: 'menu',
     NORMAL: 'normal',
     TIMED: 'timed',
     ENDLESS: 'endless',
     COMPOSER_QUIZ: 'composer_quiz',
-    ARCHIVE: 'archive'
+    ARCHIVE: 'archive' // Added Archive Mode
 };
 
-// [変更] favorites リストを追加
 const defaultGameData = {
     settings: {
         normalQuestions: 10,
@@ -27,7 +25,6 @@ const defaultGameData = {
         highScores: { normal: 0, timed: 0, endless: 0, composer_quiz: 0 },
         songStats: {},
     },
-    favorites: [], // お気に入り楽曲のvideoIdを保存
     achievements: {
         normal: false, hard: false, veryhard: false, hardcore: false,
         extreme: false, insane: false, torment: false, lunatic: false
@@ -38,471 +35,817 @@ const TITLE_SCREEN_VIDEO_ID = 'ISZ8lKOVapA';
 const SUB_SCREEN_VIDEO_ID = 'I7A-xuDS-rA';
 const TARGET_COMPOSERS = ['Mitsukiyo', 'Nor', 'KARUT', 'EmoCosine'];
 
-let player = null;
+let player = null; 
 let correctAnswer = '';
 let currentVideoId = '';
 let currentSongTitle = ''; 
 let gameTimer = null;
 let gameData = {};
-let currentQuestionIndex = 0;
-let score = 0;
-let timeLeft = 0;
-let usedIndexes = [];
-let quizPlaylist = [];
+let currentPlaylist = [];
+let answeredVideos = [];
 
-const gameState = {
+let gameState = {
     mode: GAME_MODES.MENU,
-    isPaused: false,
+    score: 0,
+    totalQuestions: 0,
+    endlessStreak: 0,
+    timeLeftMs: 0,
     answerChecked: false,
 };
 
-const domElements = {
-    mainMenu: null, gameView: null, encyclopedia: null,
-    settingsScreen: null, statsScreen: null,
-    questionCount: null, progressBarFill: null,
-    currentSongName: null, scoreDisplay: null,
-    timeDisplay: null, choicesContainer: null,
-    resultDisplay: null, answerDetails: null,
-    replayBtn: null, pauseBtn: null, volumeSlider: null,
-    startPrompt: null, startPromptBtn: null,
-};
+const domElements = {};
 
-function initDomElements() {
-    domElements.mainMenu = document.getElementById('main-menu');
-    domElements.gameView = document.getElementById('game-view');
-    domElements.encyclopedia = document.getElementById('encyclopedia');
-    domElements.settingsScreen = document.getElementById('settings-screen');
-    domElements.statsScreen = document.getElementById('stats-screen');
-    domElements.questionCount = document.getElementById('question-count');
-    domElements.progressBarFill = document.getElementById('progress-bar-fill');
-    domElements.currentSongName = document.getElementById('current-song-name');
-    domElements.scoreDisplay = document.getElementById('score');
-    domElements.timeDisplay = document.getElementById('time-display');
-    domElements.choicesContainer = document.getElementById('choices');
-    domElements.resultDisplay = document.getElementById('result');
-    domElements.answerDetails = document.getElementById('answer-details');
-    domElements.replayBtn = document.getElementById('replayBtn');
-    domElements.pauseBtn = document.getElementById('pauseBtn');
-    domElements.volumeSlider = document.getElementById('volumeSlider');
-    domElements.startPrompt = document.getElementById('start-prompt');
-    domElements.startPromptBtn = document.getElementById('start-prompt-btn');
+// --- データの保存と読み込み ---
+function saveGameData() {
+    try {
+        localStorage.setItem('blueArchiveQuizDataV2', JSON.stringify(gameData));
+    } catch (e) {
+        console.error("Failed to save game data:", e);
+    }
 }
 
 function loadGameData() {
-    const saved = localStorage.getItem('ba_quiz_data');
-    if (saved) {
-        try {
-            const parsed = JSON.parse(saved);
-            gameData = { ...defaultGameData, ...parsed };
-            gameData.stats = { ...defaultGameData.stats, ...parsed.stats };
-            // [追加] favoritesの初期化保証
-            if (!gameData.favorites) gameData.favorites = [];
-        } catch (e) {
-            gameData = JSON.parse(JSON.stringify(defaultGameData));
+    try {
+        const savedData = localStorage.getItem('blueArchiveQuizDataV2');
+        gameData = savedData ? JSON.parse(savedData) : JSON.parse(JSON.stringify(defaultGameData));
+        gameData.settings = { ...defaultGameData.settings, ...(gameData.settings || {}) };
+        gameData.stats = { ...defaultGameData.stats, ...(gameData.stats || {}) };
+        gameData.achievements = { ...defaultGameData.achievements, ...(gameData.achievements || {}) };
+        
+        if (gameData.stats.highScores.composer_quiz === undefined) {
+            gameData.stats.highScores.composer_quiz = 0;
         }
-    } else {
+    } catch (e) {
+        console.error("Failed to load game data:", e);
         gameData = JSON.parse(JSON.stringify(defaultGameData));
     }
 }
 
-function saveGameData() {
-    localStorage.setItem('ba_quiz_data', JSON.stringify(gameData));
-}
-
+// --- YouTube API 制御 ---
 function onYouTubeIframeAPIReady() {
+    const loadingOverlay = document.getElementById('loading-overlay');
+    if (loadingOverlay) loadingOverlay.style.display = 'none';
+    
     player = new YT.Player('player', {
-        height: '0', width: '0', videoId: TITLE_SCREEN_VIDEO_ID,
-        playerVars: { 'autoplay': 0, 'controls': 0, 'disablekb': 1, 'fs': 0, 'modestbranding': 1, 'rel': 0, 'showinfo': 0 },
-        events: { 'onReady': onPlayerReady, 'onStateChange': onPlayerStateChange }
+        height: '0', width: '0', videoId: '',
+        playerVars: { 'playsinline': 1, 'origin': location.protocol + '//' + location.hostname },
+        events: { 
+            'onReady': onPlayerReady, 
+            'onStateChange': onPlayerStateChange,
+            'onError': (e) => console.warn("YouTube Player Error:", e.data)
+        }
     });
 }
 
 function onPlayerReady(event) {
+    if (!player || typeof player.mute !== 'function') return;
+    
+    player.mute(); 
     if (domElements.volumeSlider) {
-        event.target.setVolume(parseInt(domElements.volumeSlider.value, 10));
+        player.setVolume(parseInt(domElements.volumeSlider.value, 10));
     }
+    
+    try {
+        player.loadVideoById({ 
+            videoId: TITLE_SCREEN_VIDEO_ID, 
+            startSeconds: 0
+        });
+        player.pauseVideo();
+    } catch (e) {
+        console.warn("Initial video load failed.");
+    }
+    
     initGame();
 }
 
 function onPlayerStateChange(event) {
-    if (event.data === YT.PlayerState.ENDED) {
-        if (gameState.mode !== GAME_MODES.MENU && !gameState.answerChecked) {
-            player.seekTo(0);
-            player.playVideo();
-        } else if (gameState.mode === GAME_MODES.MENU) {
-            player.playVideo();
-        }
+    if (!player || typeof player.seekTo !== 'function') return;
+
+    if (gameState.mode === GAME_MODES.MENU && event.data === YT.PlayerState.ENDED) {
+         player.seekTo(0); 
+         player.playVideo();
+    }
+    
+    // Archive mode uses external links, so no player loop logic needed for it.
+    if (gameState.mode !== GAME_MODES.MENU && gameState.mode !== GAME_MODES.ARCHIVE && !gameState.answerChecked && event.data === YT.PlayerState.ENDED) {
+        console.log("Song ended. Auto-looping for current quiz...");
+        player.seekTo(0);
+        player.playVideo();
+    }
+}
+
+// --- 画面遷移 ---
+function showScreen(screenId) {
+    document.querySelectorAll('.screen, #main-menu, #game-view').forEach(el => el.style.display = 'none');
+    const target = document.getElementById(screenId);
+    if (target) {
+        target.style.display = (screenId === 'game-view' || screenId === 'main-menu') ? 'flex' : 'block';
     }
 }
 
 function initGame() {
-    loadGameData();
     gameState.mode = GAME_MODES.MENU;
-    showScreen('main-menu');
-    stopTimer();
-
-    if (player && typeof player.loadVideoById === 'function') {
-        player.loadVideoById(TITLE_SCREEN_VIDEO_ID);
-        player.playVideo();
+    if (gameTimer) clearInterval(gameTimer);
+    
+    if (domElements.currentSongName) {
+        domElements.currentSongName.style.display = 'none';
+        domElements.currentSongName.innerText = '';
     }
 
-    const menuButtons = document.getElementById('menu-buttons');
-    if (menuButtons) {
-        menuButtons.innerHTML = '';
-        const modes = [
-            { id: GAME_MODES.NORMAL, label: 'ノーマルモード' },
-            { id: GAME_MODES.TIMED, label: 'タイムアタック' },
-            { id: GAME_MODES.ENDLESS, label: 'エンドレスモード' },
-            { id: GAME_MODES.COMPOSER_QUIZ, label: '作曲家当てクイズ' },
-            { id: GAME_MODES.ARCHIVE, label: 'サウンドアーカイブ', color: 'var(--blue-secondary)' } // [追加] アーカイブボタン
-        ];
+    if (player && typeof player.loadVideoById === 'function') {
+        try {
+            player.loadVideoById({ 
+                videoId: TITLE_SCREEN_VIDEO_ID, 
+                startSeconds: 0
+            });
+            player.mute(); 
+            player.playVideo();
+            player.pauseVideo();
+        } catch (e) { console.error("Menu video load failed", e); }
+    }
+    
+    showScreen('main-menu');
+    if (domElements.footer) domElements.footer.style.display = 'none'; 
+    
+    const container = domElements.mainMenu;
+    if (!container) return;
+    container.innerHTML = '';
 
-        modes.forEach(m => {
-            const btn = document.createElement('button');
-            btn.textContent = m.label;
-            if (m.color) btn.style.backgroundColor = m.color;
-            btn.onclick = () => {
-                if (m.id === GAME_MODES.ARCHIVE) {
-                    showEncyclopedia();
-                } else {
-                    startQuiz(m.id);
-                }
-            };
-            menuButtons.appendChild(btn);
-        });
+    const modes = [
+        { id: GAME_MODES.NORMAL, label: 'ノーマルモード', action: () => selectMode(GAME_MODES.NORMAL) },
+        { id: GAME_MODES.TIMED, label: 'タイムアタックモード', action: () => selectMode(GAME_MODES.TIMED) },
+        { id: GAME_MODES.ENDLESS, label: 'エンドレスモード', action: () => selectMode(GAME_MODES.ENDLESS) },
+        { id: GAME_MODES.COMPOSER_QUIZ, label: '作曲者当てクイズ', action: () => selectMode(GAME_MODES.COMPOSER_QUIZ) },
+        { id: 'stats', label: '実績・統計', action: showStatsScreen },
+        { id: GAME_MODES.ARCHIVE, label: 'サウンドアーカイブ', action: showSoundArchive } // Added Archive Button
+    ];
+
+    modes.forEach(({ id, label, action }) => {
+        const btn = document.createElement('button');
+        btn.textContent = label;
+        btn.onclick = action;
+        btn.className = `mode-${id}`;
+        container.appendChild(btn);
+    });
+}
+
+function showStartPrompt() {
+    if (!domElements.startPrompt) return;
+    domElements.startPrompt.style.display = 'flex';
+    domElements.startPromptBtn.onclick = () => {
+        domElements.startPrompt.style.display = 'none';
+        if (player && typeof player.unMute === 'function') {
+             player.unMute();
+        }
+        launchQuiz();
+    };
+}
+
+function selectMode(selectedMode) {
+    gameState.mode = selectedMode;
+    if (gameState.mode === GAME_MODES.NORMAL || gameState.mode === GAME_MODES.TIMED) {
+        showScreen('settings-screen');
+        setupModeSettings();
+    } else { 
+        showStartPrompt();
     }
 }
 
-// [新規追加] サウンドアーカイブ（図鑑）の描画ロジック
-function showEncyclopedia() {
+function setupModeSettings() {
+    const container = domElements.settingsScreen;
+    if (!container) return;
+    if (domElements.footer) domElements.footer.style.display = 'none';
+    let settingsContent = '';
+    
+    if (gameState.mode === GAME_MODES.NORMAL) {
+        const composers = ['All', ...new Set(playlist.map(s => s.composer).filter(c => c && c !== 'Unknown').sort())];
+        const options = composers.map(c => `<option value="${c}" ${gameData.settings.composerFilter === c ? 'selected' : ''}>${c}</option>`).join('');
+        settingsContent = `<h2>ノーマルモード設定</h2>
+            <div class="setting-item"><label for="normal-questions">問題数:</label><input type="number" id="normal-questions" min="1" max="50" value="${gameData.settings.normalQuestions}"></div>
+            <div class="setting-item"><label for="composer-filter">作曲者で絞り込む:</label><select id="composer-filter">${options}</select></div>`;
+    } else if (gameState.mode === GAME_MODES.TIMED) {
+        settingsContent = `<h2>タイムアタックモード設定</h2>
+            <div class="setting-item"><label for="timed-duration">制限時間(秒):</label><input type="number" id="timed-duration" min="10" max="180" step="10" value="${gameData.settings.timedDuration / 1000}"></div>`;
+    }
+
+    container.innerHTML = `${settingsContent}
+        <div style="margin-top: 2em;">
+            <button id="settings-back-btn">戻る</button>
+            <button id="start-game-btn">クイズ開始</button>
+        </div>`;
+    
+    const startBtn = document.getElementById('start-game-btn');
+    const backBtn = document.getElementById('settings-back-btn');
+    
+    if(startBtn) {
+        startBtn.onclick = () => {
+            if (gameState.mode === GAME_MODES.NORMAL) {
+                gameData.settings.normalQuestions = parseInt(document.getElementById('normal-questions').value, 10);
+                gameData.settings.composerFilter = document.getElementById('composer-filter').value;
+            } else if (gameState.mode === GAME_MODES.TIMED) {
+                gameData.settings.timedDuration = parseInt(document.getElementById('timed-duration').value, 10) * 1000;
+            }
+            saveGameData();
+            showStartPrompt();
+        };
+    }
+    if(backBtn) backBtn.onclick = initGame;
+}
+
+// --- Sound Archive Logic ---
+function showSoundArchive() {
     gameState.mode = GAME_MODES.ARCHIVE;
-    showScreen('encyclopedia');
-    
-    const container = document.getElementById('archive-list');
-    const controls = document.getElementById('archive-controls');
-    
-    // フィルタの状態を管理
-    let filterComposer = 'All';
-    let filterContext = 'All';
-    let filterFavOnly = false;
+    showScreen('sound-archive-screen');
+    if (domElements.footer) domElements.footer.style.display = 'none';
 
-    // 選択肢の抽出
-    const composers = ['All', ...new Set(playlist.map(s => s.composer))].sort();
-    const contexts = ['All', ...new Set(playlist.filter(s => s.context).map(s => {
-        const match = s.context.match(/OST \d+/);
-        return match ? match[0] : null;
-    }).filter(Boolean))].sort((a, b) => {
-        if (a === 'All') return -1;
-        return parseInt(a.replace('OST ', '')) - parseInt(b.replace('OST ', ''));
-    });
+    // Stop background music if playing
+    if (player && typeof player.stopVideo === 'function') {
+        player.stopVideo();
+    }
 
-    const render = () => {
-        container.innerHTML = '';
-        const filtered = playlist.filter(s => {
-            const matchComp = filterComposer === 'All' || s.composer === filterComposer;
-            const matchCont = filterContext === 'All' || (s.context && s.context.includes(filterContext));
-            const matchFav = !filterFavOnly || gameData.favorites.includes(s.videoId);
-            return matchComp && matchCont && matchFav;
+    const grid = document.getElementById('archive-grid');
+    const searchInput = document.getElementById('archive-search');
+    const backBtn = document.getElementById('archive-back-btn');
+
+    if (!grid || !searchInput || !backBtn) return;
+
+    backBtn.onclick = initGame;
+    searchInput.value = '';
+    
+    // Combine both playlists
+    const allSongs = [...playlist, ...characterSongPlaylist];
+
+    const renderArchiveItems = (filterText = '') => {
+        grid.innerHTML = '';
+        const lowerFilter = filterText.toLowerCase();
+
+        const filteredSongs = allSongs.filter(song => {
+            const title = (song.title || '').toLowerCase();
+            const composer = (song.composer || '').toLowerCase();
+            const context = (song.context || '').toLowerCase();
+            return title.includes(lowerFilter) || composer.includes(lowerFilter) || context.includes(lowerFilter);
         });
 
-        filtered.forEach(song => {
-            const isFav = gameData.favorites.includes(song.videoId);
-            const stats = gameData.stats.songStats[song.title] || { count: 0, correct: 0 };
-            const rate = stats.count > 0 ? Math.round((stats.correct / stats.count) * 100) : 0;
+        if (filteredSongs.length === 0) {
+            grid.innerHTML = '<p style="grid-column: 1 / -1; color: var(--grey-mid);">該当する楽曲が見つかりませんでした。</p>';
+            return;
+        }
 
+        filteredSongs.forEach(song => {
             const card = document.createElement('div');
             card.className = 'archive-card';
+            
+            // Format Context for display
+            const contextDisplay = song.context ? song.context.replace(/\n/g, ' ') : '';
+
             card.innerHTML = `
-                <div class="fav-icon ${isFav ? 'active' : ''}" data-id="${song.videoId}">
-                    ${isFav ? '❤' : '♡'}
-                </div>
-                <img src="${song.imageUrl}" alt="${song.title}" loading="lazy">
-                <div class="archive-info">
-                    <div class="archive-title">${song.title}</div>
-                    <div class="archive-sub">${song.composer}</div>
-                    <div class="archive-stats">再生: ${stats.count} | 正解: ${rate}%</div>
+                <img class="archive-card-thumb" src="${song.imageUrl}" alt="${song.title}" loading="lazy">
+                <div class="archive-card-content">
+                    <div class="archive-card-title">${song.title}</div>
+                    <div class="archive-card-composer">${song.composer || 'Unknown'}</div>
+                    ${contextDisplay ? `<div class="archive-card-meta">${contextDisplay}</div>` : ''}
                 </div>
             `;
-
-            // YouTubeリンクを別タブで開く
-            card.onclick = (e) => {
-                if (e.target.classList.contains('fav-icon')) return;
+            
+            card.onclick = () => {
+                // Open YouTube link in new tab
                 window.open(`https://www.youtube.com/watch?v=${song.videoId}`, '_blank');
             };
 
-            // お気に入り切り替え
-            const favBtn = card.querySelector('.fav-icon');
-            favBtn.onclick = (e) => {
-                e.stopPropagation();
-                toggleFavorite(song.videoId);
-                render(); // 再描画
-            };
-
-            container.appendChild(card);
+            grid.appendChild(card);
         });
     };
 
-    // フィルタUI生成
-    controls.innerHTML = `
-        <select id="filter-composer"><option value="All">すべての作曲家</option></select>
-        <select id="filter-context"><option value="All">すべてのOST</option></select>
-        <label style="font-size:0.9rem; display:flex; align-items:center; cursor:pointer;">
-            <input type="checkbox" id="filter-fav" ${filterFavOnly ? 'checked' : ''}> お気に入り
-        </label>
-    `;
+    // Initial render
+    renderArchiveItems();
 
-    const selComp = controls.querySelector('#filter-composer');
-    composers.forEach(c => { if(c !== 'All') selComp.innerHTML += `<option value="${c}">${c}</option>`; });
-    selComp.onchange = (e) => { filterComposer = e.target.value; render(); };
-
-    const selCont = controls.querySelector('#filter-context');
-    contexts.forEach(c => { if(c !== 'All') selCont.innerHTML += `<option value="${c}">${c}</option>`; });
-    selCont.onchange = (e) => { filterContext = e.target.value; render(); };
-
-    const chkFav = controls.querySelector('#filter-fav');
-    chkFav.onchange = (e) => { filterFavOnly = e.target.checked; render(); };
-
-    render();
+    // Search listener
+    searchInput.oninput = (e) => {
+        renderArchiveItems(e.target.value);
+    };
 }
 
-// [新規追加] お気に入り切り替え
-function toggleFavorite(videoId) {
-    const idx = gameData.favorites.indexOf(videoId);
-    if (idx > -1) {
-        gameData.favorites.splice(idx, 1);
-    } else {
-        gameData.favorites.push(videoId);
-    }
-    saveGameData();
-}
 
-function startQuiz(mode) {
-    gameState.mode = mode;
+// --- クイズロジック ---
+function launchQuiz() {
+    gameState.score = 0;
+    gameState.totalQuestions = 0;
+    gameState.endlessStreak = 0;
     gameState.answerChecked = false;
-    score = 0;
-    currentQuestionIndex = 0;
-    usedIndexes = [];
+    answeredVideos = [];
     
-    if (mode === GAME_MODES.COMPOSER_QUIZ) {
-        quizPlaylist = playlist.filter(s => TARGET_COMPOSERS.includes(s.composer));
-    } else {
-        quizPlaylist = [...playlist];
+    if (player && typeof player.stopVideo === 'function') {
+        player.stopVideo(); 
     }
     
-    if (quizPlaylist.length < 4) {
-        alert("楽曲データが足りません。");
+    const quizPlaylist = playlist.filter(song => song.quiz !== false);
+    
+    if (gameState.mode === GAME_MODES.COMPOSER_QUIZ) {
+        currentPlaylist = quizPlaylist.filter(song => TARGET_COMPOSERS.includes(song.composer));
+    } else {
+        const filter = gameData.settings.composerFilter;
+        currentPlaylist = (gameState.mode === GAME_MODES.NORMAL && filter !== 'All') 
+            ? quizPlaylist.filter(song => song.composer === filter) 
+            : [...quizPlaylist];
+    }
+    
+    if (currentPlaylist.length < 4 && gameState.mode !== GAME_MODES.COMPOSER_QUIZ) {
+        alert('選択した条件に該当する楽曲が少なすぎるため、クイズを開始できません。');
+        initGame();
         return;
     }
     
     showScreen('game-view');
-    
-    if (mode === GAME_MODES.TIMED) {
-        timeLeft = gameData.settings.timedDuration / 1000;
-        startTimer();
-    } else {
-        domElements.timeDisplay.textContent = '';
+    if (domElements.gameControlsContainer) domElements.gameControlsContainer.style.display = 'block';
+
+    if (gameState.mode === GAME_MODES.TIMED) {
+        gameState.timeLeftMs = gameData.settings.timedDuration;
+        if (gameTimer) clearInterval(gameTimer);
+        gameTimer = setInterval(() => {
+            gameState.timeLeftMs -= 10;
+            if (gameState.timeLeftMs <= 0) {
+                gameState.timeLeftMs = 0;
+                endGame();
+            }
+            updateTimeDisplay(gameState.timeLeftMs);
+        }, 10);
     }
     
-    nextQuestion();
+    loadNextQuiz();
 }
 
-function nextQuestion() {
-    if (gameState.mode === GAME_MODES.NORMAL && currentQuestionIndex >= gameData.settings.normalQuestions) {
+function loadNextQuiz() {
+    const isTimeUp = gameState.mode === GAME_MODES.TIMED && gameState.timeLeftMs <= 0;
+    const isNormalFinished = gameState.mode === GAME_MODES.NORMAL && gameState.totalQuestions >= gameData.settings.normalQuestions;
+
+    if (isTimeUp || isNormalFinished) {
         endGame();
         return;
     }
     
     gameState.answerChecked = false;
-    domElements.resultDisplay.textContent = '';
-    domElements.answerDetails.innerHTML = '';
-    domElements.replayBtn.style.display = 'none';
-    domElements.pauseBtn.style.display = 'none';
-    domElements.currentSongName.textContent = '???';
 
-    let idx;
-    do {
-        idx = Math.floor(Math.random() * quizPlaylist.length);
-    } while (usedIndexes.includes(idx) && usedIndexes.length < quizPlaylist.length);
+    if (domElements.result) domElements.result.innerText = '';
+    if (domElements.answerDetails) {
+        domElements.answerDetails.innerText = '';
+        domElements.answerDetails.style.display = 'none';
+    }
+    if (domElements.footer) domElements.footer.style.display = 'none'; 
     
-    if (usedIndexes.length >= quizPlaylist.length) usedIndexes = [];
-    usedIndexes.push(idx);
-    
-    const song = quizPlaylist[idx];
-    currentVideoId = song.videoId;
-    currentSongTitle = song.title;
-    
+    let available = currentPlaylist.filter(p => !answeredVideos.includes(p.videoId));
+    if (available.length < 1) {
+        answeredVideos = [];
+        available = currentPlaylist;
+    }
+
+    const random = available[Math.floor(Math.random() * available.length)];
+    if (!random) {
+        endGame();
+        return;
+    }
+
+    currentVideoId = random.videoId;
+    currentSongTitle = random.title;
+    answeredVideos.push(currentVideoId);
+
+    if (domElements.currentSongName) {
+        if (gameState.mode === GAME_MODES.COMPOSER_QUIZ) {
+            domElements.currentSongName.innerText = `🎵 ${currentSongTitle}`;
+            domElements.currentSongName.style.display = 'block';
+        } else {
+            domElements.currentSongName.style.display = 'none';
+            domElements.currentSongName.innerText = '';
+        }
+    }
+
     if (gameState.mode === GAME_MODES.COMPOSER_QUIZ) {
-        correctAnswer = song.composer;
+        correctAnswer = random.composer;
     } else {
-        correctAnswer = song.title;
+        correctAnswer = random.title;
     }
 
-    // 統計更新
-    if (!gameData.stats.songStats[song.title]) {
-        gameData.stats.songStats[song.title] = { count: 0, correct: 0 };
-    }
-    gameData.stats.songStats[song.title].count++;
-    saveGameData();
-
-    if (player && typeof player.loadVideoById === 'function') {
-        player.loadVideoById({
-            videoId: currentVideoId,
-            startSeconds: Math.floor(Math.random() * 30) + 20
-        });
-        player.playVideo();
+    if (player && typeof player.stopVideo === 'function') {
+        player.stopVideo();
     }
     
-    updateUI();
-    generateChoices(song);
+    updateUIState();
+    playIntroClip();
+    displayChoices(generateChoices(random));
 }
 
-function generateChoices(correctSong) {
-    domElements.choicesContainer.innerHTML = '';
-    let choices = [correctAnswer];
-    
+function generateChoices(correctSongObject) {
     if (gameState.mode === GAME_MODES.COMPOSER_QUIZ) {
-        const otherComposers = TARGET_COMPOSERS.filter(c => c !== correctAnswer);
-        choices.push(...shuffleArray(otherComposers).slice(0, 3));
-    } else {
-        let pool = quizPlaylist.filter(s => s.title !== correctSong.title);
-        shuffleArray(pool).slice(0, 3).forEach(s => choices.push(s.title));
+        return [...TARGET_COMPOSERS].sort(() => 0.5 - Math.random());
+    }
+
+    const correctTitle = correctSongObject.title;
+    const choices = new Set([correctTitle]);
+
+    if (correctSongObject && correctSongObject.similarGroup) {
+        const similarSongs = currentPlaylist.filter(song => 
+            song.similarGroup === correctSongObject.similarGroup && song.title !== correctTitle
+        );
+        if (similarSongs.length > 0) {
+            choices.add(similarSongs[Math.floor(Math.random() * similarSongs.length)].title);
+        }
     }
     
-    shuffleArray(choices).forEach(choice => {
+    const distractors = currentPlaylist.filter(p => !choices.has(p.title)).map(p => p.title);
+    while (choices.size < 4 && distractors.length > 0) {
+        const randomIndex = Math.floor(Math.random() * distractors.length);
+        choices.add(distractors.splice(randomIndex, 1)[0]);
+    }
+    
+    return Array.from(choices).sort(() => 0.5 - Math.random());
+}
+
+function displayChoices(choices) {
+    const container = domElements.choices;
+    if (!container) return;
+    container.innerHTML = '';
+    choices.forEach(choice => {
         const btn = document.createElement('button');
-        btn.textContent = choice;
+        btn.innerHTML = `<span>${choice}</span>`;
         btn.onclick = () => checkAnswer(choice);
-        domElements.choicesContainer.appendChild(btn);
+        container.appendChild(btn);
     });
 }
 
-function checkAnswer(selected) {
+function playIntroClip() {
+    if (!player || typeof player.loadVideoById !== 'function') return;
+    try {
+        player.loadVideoById({ 
+            videoId: currentVideoId, 
+            startSeconds: 0,
+            playerVars: { 'playsinline': 1 } 
+        });
+        player.playVideo();
+    } catch (e) { console.warn("Video playback failed", e); }
+}
+
+// --- 修正箇所: checkAnswer 関数内ヒント表示ロジック ---
+function checkAnswer(selectedChoice) {
     if (gameState.answerChecked) return;
     gameState.answerChecked = true;
     
-    const isCorrect = (selected === correctAnswer);
+    if (player && typeof player.stopVideo === 'function') {
+        player.stopVideo();
+    }
+
+    const isCorrect = (selectedChoice === correctAnswer);
+    
+    if (domElements.currentSongName) {
+        domElements.currentSongName.innerText = `🎵 ${currentSongTitle}`;
+        domElements.currentSongName.style.display = 'block';
+    }
+
     if (isCorrect) {
-        score++;
-        gameData.stats.songStats[currentSongTitle].correct++;
-        domElements.resultDisplay.textContent = '正解！';
-        domElements.resultDisplay.style.color = 'var(--green-primary)';
+        processCorrectAnswer();
     } else {
-        domElements.resultDisplay.textContent = '不正解...';
-        domElements.resultDisplay.style.color = 'var(--red-primary)';
+        processIncorrectAnswer();
+    }
+
+    const correctSongObject = playlist.find(song => song.videoId === currentVideoId);
+    if (correctSongObject && domElements.answerDetails) {
+        // [修正] OST - 曲名 - 作者 - メモロビ の構成へ変更
+        const contextParts = correctSongObject.context ? correctSongObject.context.split('\n') : ["", ""];
+        const ostInfo = contextParts[0] ? contextParts[0].trim() : "OST不明";
+        const memoInfo = contextParts[1] ? contextParts[1].replace(/メモロビ:\s*/g, '').replace(/「準備中」/g, '').trim() : "";
+        
+        // 作者は correctSongObject.composer から取得
+        const composerInfo = correctSongObject.composer || "Unknown";
+        
+        let displayHint = `💡 ${ostInfo} 「${correctSongObject.title}」作者: ${composerInfo}`;
+        if (memoInfo) {
+            displayHint += ` メモロビ: ${memoInfo}`;
+        }
+        
+        domElements.answerDetails.innerText = displayHint;
+        domElements.answerDetails.style.display = 'block';
     }
     
+    if (domElements.footer) domElements.footer.style.display = 'block'; 
+    
+    gameState.totalQuestions++;
+    updateSongStats(currentVideoId, isCorrect);
+    updateChoiceButtonsUI(selectedChoice); 
+    updateUIState();
     saveGameData();
-    domElements.currentSongName.textContent = currentSongTitle;
-    domElements.replayBtn.style.display = 'inline-block';
-    domElements.pauseBtn.style.display = 'inline-block';
-    domElements.pauseBtn.textContent = '停止';
-    
-    const currentSong = quizPlaylist.find(s => s.videoId === currentVideoId);
-    domElements.answerDetails.innerHTML = `
-        <div style="margin-top:10px; font-size:0.9rem; text-align:left; border:1px solid #eee; padding:10px; border-radius:8px;">
-            <strong>Composer:</strong> ${currentSong.composer}<br>
-            ${currentSong.context ? `<strong>Context:</strong> ${currentSong.context.replace(/\n/g, '<br>')}` : ''}
-        </div>
-    `;
+    scheduleNextStep(isCorrect);
+}
 
-    const buttons = domElements.choicesContainer.querySelectorAll('button');
-    buttons.forEach(btn => {
-        btn.disabled = true;
-        if (btn.textContent === correctAnswer) btn.style.backgroundColor = var(--green-primary);
-        else if (btn.textContent === selected && !isCorrect) btn.style.backgroundColor = var(--red-primary);
+function updateChoiceButtonsUI(selectedChoice) {
+    document.querySelectorAll('#choices button').forEach(btn => {
+        btn.disabled = true; 
+        const choiceText = btn.textContent.trim();
+        if (choiceText === correctAnswer) {
+            btn.classList.add('correct'); 
+        } else if (choiceText === selectedChoice) {
+            btn.classList.add('incorrect'); 
+        }
+        btn.style.pointerEvents = 'none'; 
     });
+}
 
-    currentQuestionIndex++;
+function processCorrectAnswer() {
+    gameState.score++;
+    if (!domElements.result) return;
     
-    if (gameState.mode !== GAME_MODES.TIMED) {
-        setTimeout(nextQuestion, NEXT_QUESTION_DELAY + 500);
+    if (gameState.mode === GAME_MODES.COMPOSER_QUIZ) {
+        domElements.result.innerText = `✅ 正解！ (曲: ${currentSongTitle})`;
     } else {
-        setTimeout(nextQuestion, NEXT_QUESTION_DELAY);
+        domElements.result.innerText = '✅ 正解！';
+    }
+
+    if (gameState.mode === GAME_MODES.ENDLESS || gameState.mode === GAME_MODES.COMPOSER_QUIZ) {
+        gameState.endlessStreak++;
+        if (gameState.mode === GAME_MODES.ENDLESS) {
+            updateEndlessAchievements();
+        } else {
+            if (gameState.endlessStreak > (gameData.stats.highScores.composer_quiz || 0)) {
+                gameData.stats.highScores.composer_quiz = gameState.endlessStreak;
+            }
+        }
     }
 }
 
-function startTimer() {
-    stopTimer();
-    gameTimer = setInterval(() => {
-        timeLeft--;
-        if (domElements.timeDisplay) domElements.timeDisplay.textContent = `残り時間: ${timeLeft}s`;
-        if (timeLeft <= 0) endGame();
-    }, 1000);
+function processIncorrectAnswer() {
+    if (!domElements.result) return;
+    if (gameState.mode === GAME_MODES.COMPOSER_QUIZ) {
+        domElements.result.innerText = `❌ 不正解... (正解: ${correctAnswer} / 曲: ${currentSongTitle})`;
+    } else {
+        domElements.result.innerText = `❌ 不正解... (正解は「${correctAnswer}」)`;
+    }
 }
 
-function stopTimer() {
-    if (gameTimer) clearInterval(gameTimer);
+function scheduleNextStep(isCorrect) {
+    const isNormalGameOver = gameState.mode === GAME_MODES.NORMAL && gameState.totalQuestions >= gameData.settings.normalQuestions;
+    const isTimedGameOver = gameState.mode === GAME_MODES.TIMED && gameState.timeLeftMs <= 0;
+    const isEndlessGameOver = (gameState.mode === GAME_MODES.ENDLESS || gameState.mode === GAME_MODES.COMPOSER_QUIZ) && !isCorrect;
+
+    const isGameOver = isNormalGameOver || isTimedGameOver || isEndlessGameOver;
+    
+    if (isNormalGameOver && domElements.progressBarFill) {
+        domElements.progressBarFill.style.width = '100%';
+    }
+    
+    const delay = isGameOver ? GAME_OVER_DELAY : (gameState.mode === GAME_MODES.TIMED ? NEXT_QUESTION_DELAY : EXTENDED_RESULT_DELAY);
+
+    setTimeout(() => {
+        if (isGameOver) {
+            endGame();
+        } else {
+            loadNextQuiz();
+        }
+    }, delay);
+}
+
+function shareResult() {
+    const title = "Blue Archive BGMイントロクイズ";
+    const hashtag = "ブルアカイントロクイズ";
+    let modeText = '', resultText = '';
+
+    switch (gameState.mode) {
+        case GAME_MODES.NORMAL:
+            const accuracy = gameState.totalQuestions > 0 ? ((gameState.score / gameState.totalQuestions) * 100).toFixed(1) : 0;
+            modeText = "ノーマルモード";
+            resultText = `結果: ${gameState.score}/${gameState.totalQuestions}問正解 (正答率: ${accuracy}%)`;
+            break;
+        case GAME_MODES.TIMED:
+            const duration = gameData.settings.timedDuration / 1000;
+            modeText = `タイムアタックモード(${duration}秒)`;
+            resultText = `スコア: ${gameState.score}問`;
+            break;
+        case GAME_MODES.ENDLESS:
+            modeText = "エンドレスモード";
+            resultText = `連続正解記録: ${gameData.stats.highScores.endless}問`;
+            break;
+        case GAME_MODES.COMPOSER_QUIZ:
+            modeText = "作曲者当てクイズ";
+            resultText = `連続正解記録: ${gameData.stats.highScores.composer_quiz}問`;
+            break;
+    }
+    const fullText = `${title}\n${modeText}でプレイしました！\n${resultText}\nhttps://takoyakiak47.github.io/intro-quiz/`;
+    const url = `https://x.com/intent/tweet?text=${encodeURIComponent(fullText)}&hashtags=${encodeURIComponent(hashtag)}`;
+    window.open(url, '_blank');
 }
 
 function endGame() {
-    stopTimer();
-    gameState.mode = GAME_MODES.MENU;
+    if (gameTimer) clearInterval(gameTimer);
+    gameTimer = null;
+    gameState.answerChecked = true;
     
-    const finalScore = score;
-    const modeKey = gameState.mode; // 実際には直前のモードが必要だが簡易化
-    // スコア更新処理は既存通り...
-    
-    alert(`終了！ スコア: ${finalScore}`);
-    initGame();
-}
+    if (domElements.currentSongName) {
+        domElements.currentSongName.style.display = 'none';
+    }
 
-function updateUI() {
-    if (gameState.mode === GAME_MODES.NORMAL) {
-        domElements.questionCount.textContent = `Question ${currentQuestionIndex + 1} / ${gameData.settings.normalQuestions}`;
-        domElements.progressBarFill.style.width = `${(currentQuestionIndex / gameData.settings.normalQuestions) * 100}%`;
-    } else {
-        domElements.questionCount.textContent = `Score: ${score}`;
-        domElements.progressBarFill.style.width = '100%';
+    if (domElements.progressContainer) domElements.progressContainer.style.display = 'none';
+    if (domElements.timeDisplay) domElements.timeDisplay.style.display = 'none';
+    if (domElements.gameControlsContainer) domElements.gameControlsContainer.style.display = 'none';
+
+    if (player && typeof player.loadVideoById === 'function') {
+        try {
+            player.loadVideoById({ 
+                videoId: SUB_SCREEN_VIDEO_ID, 
+                startSeconds: 0
+            });
+            player.unMute(); 
+            player.playVideo();
+        } catch (e) { console.warn("Result video load failed", e); }
+    }
+
+    let resultMessage = '';
+    if (gameState.mode === GAME_MODES.TIMED) {
+        if (gameState.score > (gameData.stats.highScores.timed || 0)) gameData.stats.highScores.timed = gameState.score;
+        resultMessage = `🎉 タイムアップ！ スコア: ${gameState.score}問`;
+    } else if (gameState.mode === GAME_MODES.NORMAL) {
+        if (gameState.score > (gameData.stats.highScores.normal || 0)) gameData.stats.highScores.normal = gameState.score;
+        const accuracy = gameState.totalQuestions > 0 ? ((gameState.score / gameState.totalQuestions) * 100).toFixed(1) : 0;
+        resultMessage = `🎉 終了！ スコア: ${gameState.score}/${gameState.totalQuestions} (正答率: ${accuracy}%)`;
+    } else if (gameState.mode === GAME_MODES.ENDLESS) {
+        resultMessage = `🎉 ゲームオーバー！ 今回の記録: ${gameState.endlessStreak}問`;
+    } else if (gameState.mode === GAME_MODES.COMPOSER_QUIZ) {
+        resultMessage = `🎉 作曲者クイズ終了！ 連続正解: ${gameState.endlessStreak}問`;
+    }
+    saveGameData();
+
+    if (domElements.result) domElements.result.innerText = resultMessage;
+
+    const container = domElements.choices;
+    if (container) {
+        container.innerHTML = `
+          <div>
+            <button id="share-btn">結果をXでシェア</button>
+            <button id="again-btn">もう一度あそぶ</button>
+            <button id="home-btn">ホームに戻る</button>
+          </div>
+        `; 
+        
+        const shareBtn = document.getElementById('share-btn');
+        const againBtn = document.getElementById('again-btn');
+        const homeBtn = document.getElementById('home-btn');
+
+        if(shareBtn) shareBtn.onclick = shareResult;
+        if(againBtn) againBtn.onclick = () => selectMode(gameState.mode);
+        if(homeBtn) homeBtn.onclick = initGame;
     }
 }
 
-function showScreen(screenId) {
-    const screens = document.querySelectorAll('.screen');
-    screens.forEach(s => s.style.display = 'none');
-    const target = document.getElementById(screenId);
-    if (target) target.style.display = 'block';
+function showStatsScreen() {
+    showScreen('stats-screen');
+    if (domElements.footer) domElements.footer.style.display = 'none';
 
-    if (screenId === 'main-menu' && player && typeof player.loadVideoById === 'function') {
-        player.loadVideoById(TITLE_SCREEN_VIDEO_ID);
+    if (player && typeof player.loadVideoById === 'function') {
+        player.loadVideoById({ 
+            videoId: SUB_SCREEN_VIDEO_ID, 
+            startSeconds: 0
+        });
+        player.unMute(); 
         player.playVideo();
     }
+
+    const container = document.getElementById('stats-screen');
+    if (!container) return;
+    const unlockedCount = Object.values(gameData.achievements).filter(Boolean).length;
+    
+    const achievementTiers = [
+        { key: 'normal',   label: 'NORMAL',   desc: '10問連続正解' },
+        { key: 'hard',      label: 'HARD',      desc: '20問連続正解' },
+        { key: 'veryhard', label: 'VERYHARD', desc: '50問連続正解' },
+        { key: 'hardcore', label: 'HARDCORE', desc: '100問連続正解' },
+        { key: 'extreme',  label: 'EXTREME',  desc: '150問連続正解' },
+        { key: 'insane',   label: 'INSANE',   desc: '250問連続正解' },
+        { key: 'torment',  label: 'TORMENT',  desc: '500問連続正解' },
+        { key: 'lunatic',  label: 'LUNATIC',  desc: '1000問連続正解' }
+    ];
+    
+    const achievementsHTML = achievementTiers.map(tier => `
+        <div class="achievement ${gameData.achievements[tier.key] ? 'unlocked' : ''}" style="padding: 1em; border: 1px solid var(--border-color); border-radius: 8px; background: ${gameData.achievements[tier.key] ? 'var(--blue-secondary)' : '#f9f9f9'}; color: ${gameData.achievements[tier.key] ? 'white' : 'inherit'};">
+            <div style="font-weight: bold;">${tier.label}</div>
+            <div style="font-size: 0.9em; margin-top: 0.5em;">${tier.desc}</div>
+        </div>`).join('');
+
+    container.innerHTML = `
+        <h2>実績 & 統計</h2>
+        <h3>ハイスコア</h3>
+        <p>ノーマル: <strong>${gameData.stats.highScores.normal || 0}</strong></p>
+        <p>タイムアタック: <strong>${gameData.stats.highScores.timed || 0}</strong></p>
+        <p>エンドレス: <strong>${gameData.stats.highScores.endless || 0}</strong></p>
+        <p>作曲者クイズ: <strong>${gameData.stats.highScores.composer_quiz || 0}</strong></p>
+        <h3 style="margin-top: 2em;">実績 (${unlockedCount}/${achievementTiers.length})</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1em; margin-bottom: 2em;">
+            ${achievementsHTML}
+        </div>
+        <button id="stats-back-btn">ホームに戻る</button>
+        <button id="reset-data-btn" style="background-color: var(--red-primary); color:white;">データリセット</button>
+    `;
+
+    document.getElementById('stats-back-btn').onclick = initGame;
+    document.getElementById('reset-data-btn').onclick = () => {
+        if (confirm('すべての実績とハイスコアをリセットします。よろしいですか？')) {
+            gameData = JSON.parse(JSON.stringify(defaultGameData));
+            saveGameData();
+            showStatsScreen();
+        }
+    };
 }
 
-function shuffleArray(array) {
-    const a = [...array];
-    for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
+// --- UI更新 ---
+function updateUIState() {
+    updateScore();
+    updateProgressIndicator();
+    updateTimeDisplay(gameState.mode === GAME_MODES.TIMED ? gameState.timeLeftMs : null);
+}
+
+function updateScore() {
+    if (!domElements.score) return;
+    let scoreText = '';
+    if (gameState.mode === GAME_MODES.NORMAL || gameState.mode === GAME_MODES.TIMED) {
+        scoreText = `Score: ${gameState.score}`;
+    } else {
+        const highScore = (gameState.mode === GAME_MODES.COMPOSER_QUIZ) ? (gameData.stats.highScores.composer_quiz || 0) : (gameData.stats.highScores.endless || 0);
+        scoreText = `High Score: ${highScore} | Current: ${gameState.endlessStreak}`;
     }
-    return a;
+    domElements.score.innerText = scoreText;
 }
 
-// 初期化実行
+function updateProgressIndicator() {
+    const container = domElements.progressContainer;
+    if (!container) return;
+    container.style.display = 'none'; 
+    
+    if (gameState.mode === GAME_MODES.NORMAL) {
+        const maxQ = gameData.settings.normalQuestions;
+        if (domElements.progressText) domElements.progressText.textContent = `Question ${gameState.totalQuestions + 1} / ${maxQ}`;
+        if (domElements.progressBarFill) domElements.progressBarFill.style.width = `${(gameState.totalQuestions / maxQ) * 100}%`;
+        container.style.display = 'block';
+        if (domElements.progressBarWrapper) domElements.progressBarWrapper.style.display = 'block';
+    } else if (gameState.mode === GAME_MODES.ENDLESS || gameState.mode === GAME_MODES.COMPOSER_QUIZ) {
+        if (domElements.progressText) domElements.progressText.textContent = `連続正解数: ${gameState.endlessStreak}`;
+        container.style.display = 'block';
+        if (domElements.progressBarWrapper) domElements.progressBarWrapper.style.display = 'none';
+    }
+}
+
+function updateTimeDisplay(ms) {
+    if (!domElements.timeDisplay) return;
+    if (ms != null && gameState.mode === GAME_MODES.TIMED) {
+        domElements.timeDisplay.style.display = 'block';
+        domElements.timeDisplay.innerText = `残り時間: ${(ms / 1000).toFixed(2)} 秒`;
+    } else {
+        domElements.timeDisplay.style.display = 'none';
+    }
+}
+
+function updateSongStats(videoId, isCorrect) {
+    if (!gameData.stats.songStats[videoId]) {
+        gameData.stats.songStats[videoId] = { correct: 0, incorrect: 0 };
+    }
+    isCorrect ? gameData.stats.songStats[videoId].correct++ : gameData.stats.songStats[videoId].incorrect++;
+}
+
+function updateEndlessAchievements() {
+    if (gameState.endlessStreak > (gameData.stats.highScores.endless || 0)) {
+        gameData.stats.highScores.endless = gameState.endlessStreak;
+    }
+    const achievements = {10: 'normal', 20: 'hard', 50: 'veryhard', 100: 'hardcore', 150: 'extreme', 250: 'insane', 500: 'torment', 1000: 'lunatic'};
+    for (const [streak, achievement] of Object.entries(achievements)) {
+        if (gameState.endlessStreak >= parseInt(streak, 10)) gameData.achievements[achievement] = true;
+    }
+}
+
+// --- イベントリスナー ---
 document.addEventListener('DOMContentLoaded', () => {
-    initDomElements();
+    // Added 'sound-archive-screen' to the ID list
+    const ids = ['loading-overlay', 'main-menu', 'game-view', 'choices', 'result', 'answer-details', 'score', 'time-display', 'progress-container', 'progress-text', 'progress-bar-fill', 'game-controls-container', 'volumeSlider', 'settings-screen', 'start-prompt', 'start-prompt-btn', 'encyclopedia', 'current-song-name', 'sound-archive-screen'];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            domElements[id.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = el;
+        }
+    });
+    domElements.progressBarWrapper = document.querySelector('.progress-bar-wrapper');
+    domElements.footer = document.querySelector('footer'); 
+
+    if (domElements.loadingOverlay) domElements.loadingOverlay.style.display = 'flex';
     loadGameData();
 
-    // イベントリスナー設定
-    if (domElements.replayBtn) {
-        domElements.replayBtn.onclick = () => {
-            if (player && typeof player.seekTo === 'function' && gameState.answerChecked) {
+    const replayBtn = document.getElementById('replayBtn');
+    if (replayBtn) {
+        replayBtn.onclick = () => {
+            if (player && typeof player.seekTo === 'function' && !gameState.answerChecked) {
                 player.seekTo(0);
                 player.playVideo();
             }
         };
     }
 
-    if (domElements.pauseBtn) {
-        domElements.pauseBtn.onclick = () => {
+    const pauseBtn = document.getElementById('pauseBtn');
+    if (pauseBtn) {
+        pauseBtn.onclick = () => {
             if (!player || typeof player.getPlayerState !== 'function') return;
             const state = player.getPlayerState();
-            if (state === YT.PlayerState.PLAYING) {
-                player.pauseVideo();
-                domElements.pauseBtn.textContent = '再生';
-            } else {
-                player.playVideo();
-                domElements.pauseBtn.textContent = '停止';
-            }
+            (state === YT.PlayerState.PLAYING) ? player.pauseVideo() : player.playVideo();
         };
     }
 
@@ -513,4 +856,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    
+    document.addEventListener('keydown', (event) => {
+        if (gameState.mode !== GAME_MODES.MENU && !gameState.answerChecked && domElements.gameView && domElements.gameView.style.display !== 'none') {
+            const choices = document.querySelectorAll('#choices button');
+            let keyIndex = -1;
+            switch(event.key) {
+                case '1': keyIndex = 0; break;
+                case '2': keyIndex = 1; break;
+                case '3': keyIndex = 2; break;
+                case '4': keyIndex = 3; break;
+            }
+            if (keyIndex !== -1 && choices.length > keyIndex) {
+                event.preventDefault(); 
+                checkAnswer(choices[keyIndex].textContent.trim());
+            }
+        }
+    });
 });

@@ -75,7 +75,7 @@ const playlist = [
   { title: "Tech N Tech Hard Arrange", videoId: "Tjrcd1s6TfE", composer: "KARUT", similarGroup: 2, context: "OST 74", imageUrl: "https://i.ytimg.com/vi/Tjrcd1s6TfE/hqdefault.jpg" },
   { title: "Alert Hard Arrange", videoId: "G4yZ4HkAKkg", composer: "KARUT", context: "OST 75", imageUrl: "https://i.ytimg.com/vi/G4yZ4HkAKkg/hqdefault.jpg" },
   { title: "CrossFire Hard Arrange", videoId: "ylNOiqxtkmI", composer: "KARUT", similarGroup: 2, context: "OST 76", imageUrl: "https://i.ytimg.com/vi/ylNOiqxtkmI/hqdefault.jpg" },
-  { title: "Burning Love", videoId: "NIXVrwm4SA0, composer: "Mitsukiyo", context: "OST 77\nメモロビ:ワカモ", imageUrl: "https://i.ytimg.com/vi/NIXVrwm4SA0/hqdefault.jpg" },
+  { title: "Burning Love", videoId: "NIXVrwm4SA0", composer: "Mitsukiyo", context: "OST 77\nメモロビ:ワカモ", imageUrl: "https://i.ytimg.com/vi/NIXVrwm4SA0/hqdefault.jpg" },
   { title: "Fevertime", videoId: "7kVh5kurcfU", composer: "KARUT", similarGroup: 7,context: "OST 78\n総力戦KAITEN FX Mk.0", imageUrl: "https://i.ytimg.com/vi/7kVh5kurcfU/hqdefault.jpg" },
   { title: "Summer Bounce", videoId: "3FU0Aco4XjY", composer: "Mitsukiyo", similarGroup: 13,context: "OST 79", imageUrl: "https://i.ytimg.com/vi/3FU0Aco4XjY/hqdefault.jpg" },
   { title: "Colorful Beach", videoId: "lSLD3MuGf5w", composer: "Mitsukiyo", context: "OST 80\nメモロビ:ツルギ(水着)、マシロ(水着)、ヒフミ(水着)", imageUrl: "https://i.ytimg.com/vi/lSLD3MuGf5w/hqdefault.jpg" },

@@ -84,6 +84,8 @@ function loadGameData() {
 // --- YouTube API 制御 ---
 function onYouTubeIframeAPIReady() {
     const loadingOverlay = document.getElementById('loading-overlay');
+    // 【修正】API準備完了時にinitGameを呼ばないように変更（初期化ループ防止）
+    // オーバーレイを消す処理は念のため残すが、基本はCSSで非表示
     if (loadingOverlay) loadingOverlay.style.display = 'none';
     
     player = new YT.Player('player', {
@@ -115,7 +117,8 @@ function onPlayerReady(event) {
         console.warn("Initial video load failed.");
     }
     
-    initGame();
+    // API準備完了時にゲームを再初期化する必要はないため、ここでは何もしない
+    // (ページロード時に既にinitGame()が呼ばれているため)
 }
 
 function onPlayerStateChange(event) {
@@ -844,8 +847,11 @@ document.addEventListener('DOMContentLoaded', () => {
     domElements.progressBarWrapper = document.querySelector('.progress-bar-wrapper');
     domElements.footer = document.querySelector('footer'); 
 
-    if (domElements.loadingOverlay) domElements.loadingOverlay.style.display = 'flex';
+    // 【修正】ローディング画面の強制表示コードを削除し、即座にゲーム（メニュー）を初期化
+    // if (domElements.loadingOverlay) domElements.loadingOverlay.style.display = 'flex'; <- 削除
+    
     loadGameData();
+    initGame(); // 【修正】ページロード時にメニューを即座に表示
 
     const replayBtn = document.getElementById('replayBtn');
     if (replayBtn) {

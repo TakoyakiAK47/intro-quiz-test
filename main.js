@@ -1,5 +1,5 @@
 /* ============================================================
-   Blue Archive イントロクイズ - main.js (Robust Fixed Edition)
+   Blue Archive イントロクイズ - main.js (HTML変更なし対応版)
    ============================================================ */
 
 const NEXT_QUESTION_DELAY = 1000;
@@ -36,9 +36,11 @@ const TITLE_SCREEN_VIDEO_ID = 'ISZ8lKOVapA';
 const SUB_SCREEN_VIDEO_ID = 'I7A-xuDS-rA';
 const TARGET_COMPOSERS = ['Mitsukiyo', 'Nor', 'KARUT', 'EmoCosine'];
 
+// 状態管理フラグ
 let player = null; 
 let isPlayerReady = false; 
 let isDataLoaded = false;
+let isScreenTransitioned = false;
 
 let correctAnswer = '';
 let currentVideoId = '';
@@ -57,13 +59,11 @@ let gameState = {
     history: []
 };
 
+// DOM要素の参照
 const domElements = {
     loadingScreen: document.getElementById('loading-screen'),
     menuScreen: document.getElementById('menu-screen'),
     gameScreen: document.getElementById('game-screen'),
-    statsScreen: document.getElementById('stats-screen'),
-    settingsScreen: document.getElementById('settings-screen'),
-    archiveScreen: document.getElementById('sound-archive-screen'),
     scoreDisplay: document.getElementById('score-display'),
     timerDisplay: document.getElementById('timer-display'),
     questionCount: document.getElementById('question-count'),
@@ -71,7 +71,6 @@ const domElements = {
     choices: document.getElementById('choices'),
     resultOverlay: document.getElementById('result-overlay'),
     resultScore: document.getElementById('result-score'),
-    resultStats: document.getElementById('result-stats'),
     archiveSearch: document.getElementById('archive-search'),
     archiveGrid: document.getElementById('archive-grid'),
     volumeSlider: document.getElementById('volumeSlider'),
@@ -87,11 +86,11 @@ function initApp() {
     isDataLoaded = true;
     checkReadyStatus();
 
-    // セーフティ・タイムアウト
+    // 変更開始：セーフティ・タイムアウト（5秒経っても消えない場合は強制表示）
     setTimeout(() => {
-        if (domElements.loadingScreen && !domElements.loadingScreen.classList.contains('hidden')) {
+        if (!isScreenTransitioned) {
             console.warn("Loading timeout: Forcing screen display.");
-            showScreen('menu-screen');
+            hideLoadingAndShowMenu();
         }
     }, 5000);
 }
@@ -120,16 +119,29 @@ function onYouTubeIframeAPIReady() {
 
 function onPlayerReady(event) {
     isPlayerReady = true;
-    if (gameData.settings) {
+    if (gameData.settings && player.setVolume) {
         player.setVolume(gameData.settings.volume || 25);
     }
     checkReadyStatus();
 }
 
 function checkReadyStatus() {
-    if (isPlayerReady && isDataLoaded) {
-        showScreen('menu-screen');
+    if (isPlayerReady && isDataLoaded && !isScreenTransitioned) {
+        hideLoadingAndShowMenu();
     }
+}
+
+// 変更開始：HTMLを変えずにロード画面を制御
+function hideLoadingAndShowMenu() {
+    isScreenTransitioned = true;
+    if (domElements.loadingScreen) {
+        domElements.loadingScreen.style.transition = 'opacity 0.5s ease';
+        domElements.loadingScreen.style.opacity = '0';
+        setTimeout(() => {
+            domElements.loadingScreen.style.display = 'none';
+        }, 500);
+    }
+    showScreen('menu-screen');
 }
 
 function loadGameData() {
@@ -137,6 +149,7 @@ function loadGameData() {
         const saved = localStorage.getItem('blueArchiveQuizDataV2');
         if (saved) {
             const parsed = JSON.parse(saved);
+            // 既存データに新しい設定項目をマージ
             gameData = {
                 settings: { ...defaultGameData.settings, ...parsed.settings },
                 stats: { ...defaultGameData.stats, ...parsed.stats },
@@ -164,20 +177,14 @@ function saveGameData() {
    ============================================================ */
 
 function showScreen(screenId) {
+    // 全ての画面を非表示にする
     document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
-    domElements.resultOverlay.style.display = 'none';
-    
-    if (domElements.loadingScreen) {
-        domElements.loadingScreen.classList.add('hidden');
-        setTimeout(() => {
-            domElements.loadingScreen.style.display = 'none';
-        }, 500);
-    }
+    if (domElements.resultOverlay) domElements.resultOverlay.style.display = 'none';
 
     const target = document.getElementById(screenId);
     if (target) target.style.display = 'block';
     
-    gameState.mode = screenId === 'menu-screen' ? GAME_MODES.MENU : gameState.mode;
+    gameState.mode = (screenId === 'menu-screen') ? GAME_MODES.MENU : gameState.mode;
 }
 
 /* ============================================================
@@ -188,9 +195,9 @@ function startGame(mode) {
     gameState.mode = mode;
     gameState.score = 0;
     gameState.currentIndex = 0;
-    gameState.history = [];
     gameState.answerChecked = false;
 
+    // プレイリスト構築
     if (mode === GAME_MODES.COMPOSER_QUIZ) {
         currentPlaylist = playlist.filter(s => TARGET_COMPOSERS.includes(s.composer));
     } else {
@@ -217,26 +224,34 @@ function nextQuestion() {
     }
 
     gameState.answerChecked = false;
-    domElements.feedback.textContent = '';
-    domElements.feedback.className = '';
+    if (domElements.feedback) {
+        domElements.feedback.textContent = '';
+        domElements.feedback.className = '';
+    }
     
     const currentSong = currentPlaylist[gameState.currentIndex % currentPlaylist.length];
     correctAnswer = currentSong.title;
     currentVideoId = currentSong.videoId;
-    currentSongTitle = currentSong.title;
 
-    domElements.questionCount.textContent = `Question: ${gameState.currentIndex + 1}${gameState.mode === GAME_MODES.NORMAL ? '/' + gameData.settings.normalQuestions : ''}`;
-    domElements.scoreDisplay.textContent = `Score: ${gameState.score}`;
+    if (domElements.questionCount) {
+        const total = (gameState.mode === GAME_MODES.NORMAL) ? `/${gameData.settings.normalQuestions}` : '';
+        domElements.questionCount.textContent = `Question: ${gameState.currentIndex + 1}${total}`;
+    }
+    if (domElements.scoreDisplay) {
+        domElements.scoreDisplay.textContent = `Score: ${gameState.score}`;
+    }
 
     generateChoices(currentSong);
     
+    // 変更開始：プレイヤー準備完了を待つガード
     if (isPlayerReady && player && typeof player.loadVideoById === 'function') {
         player.loadVideoById({
             videoId: currentVideoId,
             startSeconds: 0
         });
     } else {
-        setTimeout(() => nextQuestion(), 500);
+        console.log("Waiting for player API...");
+        setTimeout(nextQuestion, 500);
         return;
     }
 
@@ -249,6 +264,7 @@ function generateChoices(correctSong) {
     let choices = [correctSong.title];
     let attempts = 0;
 
+    // 変更開始：無限ループ防止
     while (choices.length < 4 && attempts < 100) {
         attempts++;
         const randomSong = playlist[Math.floor(Math.random() * playlist.length)];
@@ -258,13 +274,15 @@ function generateChoices(correctSong) {
     }
     
     shuffleArray(choices);
-    domElements.choices.innerHTML = '';
-    choices.forEach(title => {
-        const btn = document.createElement('button');
-        btn.textContent = title;
-        btn.onclick = () => checkAnswer(title);
-        domElements.choices.appendChild(btn);
-    });
+    if (domElements.choices) {
+        domElements.choices.innerHTML = '';
+        choices.forEach(title => {
+            const btn = document.createElement('button');
+            btn.textContent = title;
+            btn.onclick = () => checkAnswer(title);
+            domElements.choices.appendChild(btn);
+        });
+    }
 }
 
 function checkAnswer(selected) {
@@ -281,9 +299,16 @@ function checkAnswer(selected) {
         domElements.feedback.className = 'feedback-incorrect';
     }
 
-    Array.from(domElements.choices.children).forEach(btn => {
-        if (btn.textContent === correctAnswer) btn.classList.add('correct');
-        else if (btn.textContent === selected && !isCorrect) btn.classList.add('incorrect');
+    // 正解・不正解の色付け
+    const btns = domElements.choices.querySelectorAll('button');
+    btns.forEach(btn => {
+        if (btn.textContent === correctAnswer) {
+            btn.style.backgroundColor = '#28a745';
+            btn.style.color = 'white';
+        } else if (btn.textContent === selected && !isCorrect) {
+            btn.style.backgroundColor = '#dc3545';
+            btn.style.color = 'white';
+        }
     });
 
     gameState.currentIndex++;
@@ -297,16 +322,16 @@ function checkAnswer(selected) {
 function initGame() {
     if (gameTimer) clearInterval(gameTimer);
     showScreen('menu-screen');
-    if (isPlayerReady) player.stopVideo();
+    if (isPlayerReady && player) player.stopVideo();
 }
 
 function startTimer() {
     let timeLeft = gameData.settings.timedDuration / 1000;
-    domElements.timerDisplay.textContent = `Time: ${timeLeft}s`;
+    if (domElements.timerDisplay) domElements.timerDisplay.textContent = `Time: ${timeLeft}s`;
     
     gameTimer = setInterval(() => {
         timeLeft--;
-        domElements.timerDisplay.textContent = `Time: ${timeLeft}s`;
+        if (domElements.timerDisplay) domElements.timerDisplay.textContent = `Time: ${timeLeft}s`;
         if (timeLeft <= 0) {
             clearInterval(gameTimer);
             endGame();
@@ -316,10 +341,12 @@ function startTimer() {
 
 function endGame() {
     if (gameTimer) clearInterval(gameTimer);
-    if (isPlayerReady) player.stopVideo();
+    if (isPlayerReady && player) player.stopVideo();
 
-    domElements.resultOverlay.style.display = 'flex';
-    domElements.resultScore.textContent = `${gameState.score} 点`;
+    if (domElements.resultOverlay) {
+        domElements.resultOverlay.style.display = 'flex';
+        domElements.resultScore.textContent = `${gameState.score} 点`;
+    }
     
     const mode = gameState.mode;
     if (gameState.score > gameData.stats.highScores[mode]) {
@@ -335,12 +362,15 @@ function shuffleArray(array) {
     }
 }
 
+// 変更開始：入力干渉防止付きキーリスナー
 document.addEventListener('keydown', (event) => {
+    // 検索窓など入力中は何もしない
     if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
         return;
     }
 
-    if (gameState.mode !== GAME_MODES.MENU && !gameState.answerChecked && domElements.gameScreen.style.display !== 'none') {
+    const isGameActive = domElements.gameScreen && domElements.gameScreen.style.display !== 'none';
+    if (gameState.mode !== GAME_MODES.MENU && !gameState.answerChecked && isGameActive) {
         const choices = domElements.choices.querySelectorAll('button');
         let keyIndex = -1;
         switch(event.key) {
@@ -359,12 +389,14 @@ document.addEventListener('keydown', (event) => {
 /* ============================================================
    Archive & Settings
    ============================================================ */
+
 function showArchive() {
     showScreen('sound-archive-screen');
     renderArchive('');
 }
 
 function renderArchive(query) {
+    if (!domElements.archiveGrid) return;
     domElements.archiveGrid.innerHTML = '';
     const filtered = playlist.filter(s => 
         s.title.toLowerCase().includes(query.toLowerCase()) || 
@@ -378,7 +410,7 @@ function renderArchive(query) {
             <img src="https://img.youtube.com/vi/${song.videoId}/mqdefault.jpg" alt="${song.title}">
             <div class="archive-item-info">
                 <div class="archive-item-title">${song.title}</div>
-                <div style="font-size: 0.75rem; color: var(--grey-mid);">${song.composer}</div>
+                <div style="font-size: 0.75rem; color: #6c757d;">${song.composer}</div>
             </div>
         `;
         div.onclick = () => {
@@ -388,22 +420,26 @@ function renderArchive(query) {
     });
 }
 
+// 検索入力
 if (domElements.archiveSearch) {
     domElements.archiveSearch.addEventListener('input', (e) => renderArchive(e.target.value));
 }
 
+// 戻るボタン（ID指定で取得）
 const archiveBackBtn = document.getElementById('archive-back-btn');
 if (archiveBackBtn) {
     archiveBackBtn.onclick = () => initGame();
 }
 
+// 音量スライダー
 if (domElements.volumeSlider) {
     domElements.volumeSlider.addEventListener('input', (e) => {
         const val = parseInt(e.target.value, 10);
-        if (isPlayerReady) player.setVolume(val);
+        if (isPlayerReady && player.setVolume) player.setVolume(val);
         gameData.settings.volume = val;
         saveGameData();
     });
 }
 
+// 初期化開始
 document.addEventListener('DOMContentLoaded', initApp);

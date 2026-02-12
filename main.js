@@ -618,7 +618,7 @@ function scheduleNextStep(isCorrect) {
 }
 
 function shareResult() {
-    const title = "Blue Archive BGMイントロクイズ";
+    const title = "ブルアカイントロクイズ";
     const hashtag = "ブルアカイントロクイズ";
     let modeText = '', resultText = '';
 
@@ -642,7 +642,7 @@ function shareResult() {
             resultText = `連続正解記録: ${gameData.stats.highScores.composer_quiz}問`;
             break;
     }
-    const fullText = `${title}\n${modeText}でプレイしました！\n${resultText}\nhttps://takoyakiak47.github.io/intro-quiz/`;
+    const fullText = `${title} ${modeText}でプレイしました！ ${resultText}https://takoyakiak47.github.io/intro-quiz/`;
     const url = `https://x.com/intent/tweet?text=${encodeURIComponent(fullText)}&hashtags=${encodeURIComponent(hashtag)}`;
     window.open(url, '_blank');
 }

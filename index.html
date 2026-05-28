@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <title>Blue Archive イントロクイズ</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <link rel=\"icon\" href=\"https://bluearchive.jp/favicon.ico\" type=\"image/x-icon\">
+  <link rel="icon" href="https://bluearchive.jp/favicon.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -19,7 +19,7 @@
       --neon-red: #f05;
       
       --bg-base: #050508;
-      --panel-bg: rgba(10, 10, 15, 0.8);
+      --panel-bg: rgba(10, 10, 15, 0.75);
       
       --text-light: #fff;
       --text-dark: #e0f0ff;
@@ -48,13 +48,6 @@
       user-select: none;
       -webkit-user-select: none;
       overflow-x: hidden;
-      
-      /* ユーザー指定の新しい背景画像を設定（オーバーレイで視認性を確保） */
-      background-image: linear-gradient(rgba(5, 5, 8, 0.75), rgba(5, 5, 8, 0.85)), url('{2EF3F8C4-29E3-467F-9362-971AB1A68D96}.png');
-      background-size: cover;
-      background-position: center center;
-      background-attachment: fixed;
-      background-repeat: no-repeat;
     }
 
     #bg-canvas {
@@ -89,15 +82,15 @@
       font-style: italic;
     }
     
+    /* DJ Console Frame for Game View */
     #game-view, .screen {
       background: var(--panel-bg);
       border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 16px;
+      border-radius: 12px;
       padding: 2em;
       width: 100%;
       max-width: 800px;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(10px);
       box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 2px var(--neon-blue);
       position: relative;
     }
@@ -108,21 +101,22 @@
       top: -2px; left: -2px; right: -2px; bottom: -2px;
       background: linear-gradient(45deg, var(--neon-blue), var(--neon-purple), var(--neon-orange), var(--neon-green));
       z-index: -1;
-      border-radius: 18px;
-      opacity: 0.25;
-      filter: blur(4px);
+      border-radius: 14px;
+      opacity: 0.3;
+      filter: blur(3px);
     }
 
-    #progress-container { width: 100%; margin: 1em 0; display: flex; flex-direction: column; align-items: center; }
+    /* Progress & Time as DJ Sliders/Meters */
+    #progress-container { width: 100%; margin: 1em 0; }
     #progress-text { 
-      font-size: 1.6em; font-weight: 700; color: var(--neon-yellow); 
+      font-size: 1.5em; font-weight: 700; color: var(--neon-yellow); 
       text-shadow: 0 0 8px var(--neon-yellow);
       letter-spacing: 2px;
       margin-bottom: 0.5em; display: block;
     }
     
     .progress-bar-wrapper { 
-      width: 95%; max-width: 600px; background: #000; border-radius: 6px; height: 14px;
+      width: 100%; background: #000; border-radius: 4px; height: 16px;
       border: 1px solid #333; box-shadow: inset 0 0 5px rgba(0,0,0,0.8);
       position: relative; overflow: hidden;
     }
@@ -134,18 +128,20 @@
       transition: width 0.3s ease;
     }
 
+    /* Score & Time */
     p#score, p#time-display {
       font-size: 2em; font-weight: 900;
       font-family: monospace;
       margin: 0.2em 0;
-      background: rgba(0,0,0,0.6);
-      padding: 0.2em 0.6em;
+      background: rgba(0,0,0,0.5);
+      padding: 0.2em 0.5em;
       border-radius: 8px;
       border: 1px solid rgba(255,255,255,0.1);
     }
     p#score { color: var(--neon-green); text-shadow: 0 0 10px var(--neon-green); }
     p#time-display { color: var(--neon-red); text-shadow: 0 0 10px var(--neon-red); }
 
+    /* Song Title with Equalizer */
     #current-song-name {
       display: none; 
       font-size: clamp(1.5em, 5vw, 2.5em);
@@ -154,98 +150,305 @@
       text-shadow: 0 0 10px var(--neon-purple), 0 0 20px var(--neon-purple);
       margin: 0.5em 0;
       line-height: 1.3;
-      padding: 0.6em;
-      background: rgba(0, 0, 0, 0.7);
-      border-left: 6px solid var(--neon-purple);
-      border-right: 6px solid var(--neon-purple);
+      padding: 0.5em;
+      background: rgba(0, 0, 0, 0.6);
+      border-left: 5px solid var(--neon-purple);
+      border-right: 5px solid var(--neon-purple);
       border-radius: 4px;
     }
 
-    /* ボタンの配置・位置・サイズを元の「縦並び1列」に修正 */
-    #choices, #main-menu { 
-      display: flex; 
-      flex-direction: column; 
-      align-items: center; 
-      width: 100%; 
-      max-width: 800px; 
-      gap: 0.6em; 
+    /* DJ Pad Choices (Launchpad style) */
+    #choices {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1em;
+      width: 100%;
       margin-top: 1em;
     }
     
-    #main-menu { margin-top: 2em; }
+    #main-menu {
+      display: flex; flex-direction: column; align-items: center; gap: 1em; margin-top: 2em;
+    }
     
     button, .yt-button {
       font-family: 'Noto Sans JP', sans-serif;
-      font-size: 1.5em; 
+      font-size: 1.3em;
       font-weight: 700;
       cursor: pointer;
-      border-radius: 12px; 
-      padding: 0.8em 1.5em; 
-      margin: 0.2em;
-      width: 95%; 
-      max-width: 600px; /* 横幅の制限を復活 */
+      border-radius: 8px;
+      padding: 1em;
       color: #fff;
-      background: rgba(15, 15, 20, 0.85);
+      background: rgba(20, 20, 25, 0.9);
       border: 2px solid var(--neon-blue);
       box-shadow: var(--shadow-blue);
       text-shadow: 0 0 5px var(--neon-blue);
-      transition: all 0.2s ease-in-out;
-      display: inline-flex;
+      transition: all 0.2s ease;
+      display: flex;
       align-items: center;
       justify-content: center;
       text-align: center;
-      line-height: 1.4;
+      line-height: 1.3;
     }
+    
+    #main-menu button { width: 100%; max-width: 500px; }
     
     button:hover, .yt-button:hover {
-      background: rgba(0, 221, 255, 0.15);
-      transform: translateY(-3px);
-      box-shadow: 0 0 20px var(--neon-blue), inset 0 0 10px var(--neon-blue);
+      background: rgba(0, 221, 255, 0.2);
+      transform: translateY(-2px);
+      box-shadow: 0 0 20px var(--neon-blue), inset 0 0 15px var(--neon-blue);
     }
-    button:active, .yt-button:active { transform: scale(0.98); }
+    button:active, .yt-button:active { transform: scale(0.95); }
 
-    /* メニューボタンごとのネオンカラー分岐 */
+    /* Main Menu Multicolored buttons */
     #main-menu button:nth-child(1) { border-color: var(--neon-blue); box-shadow: var(--shadow-blue); text-shadow: 0 0 5px var(--neon-blue); }
-    #main-menu button:nth-child(1):hover { background: rgba(0,221,255,0.2); box-shadow: 0 0 25px var(--neon-blue), inset 0 0 10px var(--neon-blue); }
+    #main-menu button:nth-child(1):hover { background: rgba(0,221,255,0.2); }
     
     #main-menu button:nth-child(2) { border-color: var(--neon-purple); box-shadow: var(--shadow-purple); text-shadow: 0 0 5px var(--neon-purple); }
-    #main-menu button:nth-child(2):hover { background: rgba(187,0,255,0.2); box-shadow: 0 0 25px var(--neon-purple), inset 0 0 10px var(--neon-purple); }
+    #main-menu button:nth-child(2):hover { background: rgba(187,0,255,0.2); }
     
     #main-menu button:nth-child(3) { border-color: var(--neon-orange); box-shadow: var(--shadow-orange); text-shadow: 0 0 5px var(--neon-orange); }
-    #main-menu button:nth-child(3):hover { background: rgba(255,136,0,0.2); box-shadow: 0 0 25px var(--neon-orange), inset 0 0 10px var(--neon-orange); }
+    #main-menu button:nth-child(3):hover { background: rgba(255,136,0,0.2); }
     
     #main-menu button:nth-child(4) { border-color: var(--neon-green); box-shadow: var(--shadow-green); text-shadow: 0 0 5px var(--neon-green); }
-    #main-menu button:nth-child(4):hover { background: rgba(0,255,136,0.2); box-shadow: 0 0 25px var(--neon-green), inset 0 0 10px var(--neon-green); }
+    #main-menu button:nth-child(4):hover { background: rgba(0,255,136,0.2); }
 
     #main-menu button:nth-child(5) { border-color: var(--neon-yellow); box-shadow: var(--shadow-yellow); text-shadow: 0 0 5px var(--neon-yellow); }
-    #main-menu button:nth-child(5):hover { background: rgba(255,255,0,0.2); box-shadow: 0 0 25px var(--neon-yellow), inset 0 0 10px var(--neon-yellow); }
+    #main-menu button:nth-child(5):hover { background: rgba(255,255,0,0.2); }
 
-    #main-menu button:nth-child(6) { border-color: var(--neon-red); box-shadow: 0 0 10px var(--neon-red), inset 0 0 10px rgba(255,0,85,0.1); text-shadow: 0 0 5px var(--neon-red); }
-    #main-menu button:nth-child(6):hover { background: rgba(255,0,85,0.2); box-shadow: 0 0 25px var(--neon-red), inset 0 0 10px var(--neon-red); }
+    #main-menu button:nth-child(6) { border-color: var(--neon-red); box-shadow: 0 0 10px var(--neon-red), inset 0 0 10px rgba(255,0,85,0.2); text-shadow: 0 0 5px var(--neon-red); }
+    #main-menu button:nth-child(6):hover { background: rgba(255,0,85,0.2); }
 
+    /* Correct / Incorrect Launchpad feedback */
     button.correct {
-      background: rgba(0, 255, 136, 0.3) !important;
+      background: rgba(0, 255, 136, 0.4) !important;
       border-color: var(--neon-green) !important;
-      box-shadow: 0 0 25px var(--neon-green), inset 0 0 15px var(--neon-green) !important;
+      box-shadow: 0 0 30px var(--neon-green), inset 0 0 20px var(--neon-green) !important;
       text-shadow: 0 0 10px #fff !important;
-      transform: scale(1.03) !important;
+      transform: scale(1.05);
+      z-index: 10;
     }
     
     button.incorrect {
-      background: rgba(255, 0, 85, 0.3) !important;
+      background: rgba(255, 0, 85, 0.4) !important;
       border-color: var(--neon-red) !important;
-      box-shadow: 0 0 25px var(--neon-red), inset 0 0 15px var(--neon-red) !important;
+      box-shadow: 0 0 30px var(--neon-red), inset 0 0 20px var(--neon-red) !important;
       animation: shake 0.4s;
     }
 
-    /* (その他のスタイルは変化なしのため中略) */
-  </style>
+    #result {
+      font-size: 2.2em; font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 10px var(--neon-yellow), 0 0 20px var(--neon-yellow);
+      margin: 0.5em 0; min-height: 1.5em;
+      display: none; align-items: center; justify-content: center;
+      animation: pop-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    
+    #answer-details {
+      display: none;
+      background: rgba(0, 0, 0, 0.7);
+      border: 1px solid var(--neon-orange);
+      border-left: 8px solid var(--neon-orange);
+      color: #fff;
+      padding: 1em; border-radius: 4px;
+      font-size: 1.1em;
+      line-height: 1.6;
+      box-shadow: 0 0 15px rgba(255,136,0,0.3);
+      text-align: left;
+      width: 100%;
+      margin-top: 1em;
+    }
+
+    /* Control Buttons (Play, Pause, Volume) */
+    #game-controls-container {
+      width: 100%;
+      background: rgba(0,0,0,0.5);
+      border-radius: 8px;
+      padding: 1em;
+      margin-top: 1.5em;
+      border: 1px solid #333;
+    }
+    
+    #volumeSlider {
+      -webkit-appearance: none;
+      width: 150px; height: 6px; background: #333; border-radius: 3px; outline: none;
+      box-shadow: inset 0 0 5px #000;
+    }
+    #volumeSlider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--neon-blue); cursor: pointer;
+      box-shadow: 0 0 10px var(--neon-blue);
+    }
+
+    #control-buttons { display: flex; gap: 0.5em; justify-content: center; flex-wrap: wrap; margin-top: 1em; }
+    #control-buttons button {
+      font-size: 1em; padding: 0.8em 1.2em;
+      border-color: #555; box-shadow: none; text-shadow: none;
+      background: #111;
+    }
+    #control-buttons button:hover {
+      border-color: #fff; box-shadow: 0 0 10px #fff; text-shadow: 0 0 5px #fff;
+    }
+
+    /* Sound Archive Grid - Cyberpunk Record crate style */
+    #archive-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.5em;
+      max-height: 60vh; overflow-y: auto; padding: 1em;
+    }
+    
+    /* Custom Scrollbar for Archive */
+    #archive-grid::-webkit-scrollbar { width: 8px; }
+    #archive-grid::-webkit-scrollbar-track { background: rgba(0,0,0,0.5); border-radius: 4px; }
+    #archive-grid::-webkit-scrollbar-thumb { background: var(--neon-purple); border-radius: 4px; box-shadow: 0 0 5px var(--neon-purple); }
+
+    .archive-card {
+      background: rgba(0, 0, 0, 0.8);
+      border: 1px solid #333;
+      border-radius: 8px;
+      overflow: hidden;
+      transition: all 0.2s;
+      cursor: pointer;
+      position: relative;
+    }
+    .archive-card:hover {
+      border-color: var(--neon-purple);
+      box-shadow: 0 0 15px var(--neon-purple);
+      transform: translateY(-5px) scale(1.02);
+    }
+    
+    .archive-card-thumb { width: 100%; aspect-ratio: 16/9; object-fit: cover; opacity: 0.8; filter: grayscale(30%); transition: 0.3s; }
+    .archive-card:hover .archive-card-thumb { opacity: 1; filter: grayscale(0%); }
+    
+    .archive-card-content { padding: 1em; }
+    .archive-card-title { font-weight: 900; color: #fff; font-size: 1.1em; margin-bottom: 0.3em; text-shadow: 0 0 5px rgba(255,255,255,0.5); }
+    .archive-card-composer { font-size: 0.9em; color: var(--neon-blue); }
+    .archive-card-meta { font-size: 0.8em; color: var(--neon-orange); margin-top: 0.5em; }
+
+    #archive-search {
+      width: 100%; max-width: 600px; padding: 1em;
+      background: rgba(0,0,0,0.6); color: #fff; border: 1px solid var(--neon-blue);
+      border-radius: 8px; font-size: 1.1em; outline: none;
+      box-shadow: inset 0 0 10px rgba(0,221,255,0.2);
+    }
+    #archive-search:focus { box-shadow: 0 0 15px var(--neon-blue), inset 0 0 10px rgba(0,221,255,0.4); }
+
+    /* Screens & Modals */
+    .screen h2 { color: var(--neon-purple); text-shadow: 0 0 10px var(--neon-purple); margin-top: 0; text-transform: uppercase; letter-spacing: 2px;}
+    
+    .setting-item { color: #fff; margin: 1em 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    .setting-item input, .setting-item select { 
+      background: #000; color: #fff; border: 1px solid var(--neon-blue); padding: 0.5em; border-radius: 4px;
+      outline: none; font-size: 1em; min-width: 150px;
+    }
+    .setting-item input:focus, .setting-item select:focus { box-shadow: 0 0 10px var(--neon-blue); }
+
+    #loading-overlay, #start-prompt {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(5,5,8,0.95); display: flex; flex-direction: column;
+      justify-content: center; align-items: center; z-index: 2000;
+    }
+    #loading-overlay p { font-size: 2em; font-weight: 900; color: var(--neon-green); text-shadow: 0 0 15px var(--neon-green); animation: pulse 1s infinite alternate; }
+    
+    #start-prompt-btn {
+      font-size: 2em; padding: 1em 2em; border-radius: 12px;
+      background: transparent; color: var(--neon-purple);
+      border: 3px solid var(--neon-purple);
+      box-shadow: 0 0 30px rgba(187,0,255,0.5), inset 0 0 20px rgba(187,0,255,0.3);
+      text-shadow: 0 0 10px var(--neon-purple);
+      text-transform: uppercase; letter-spacing: 4px;
+    }
+    #start-prompt-btn:hover { background: rgba(187,0,255,0.2); box-shadow: 0 0 50px var(--neon-purple), inset 0 0 30px var(--neon-purple); }
+
+    /* Audio Equalizer CSS Animation */
+    .equalizer {
+      display: flex; gap: 4px; height: 30px; align-items: flex-end; justify-content: center; margin-bottom: 10px;
+    }
+    .eq-bar {
+      width: 8px; background: var(--neon-blue); border-radius: 2px 2px 0 0;
+      box-shadow: 0 0 10px var(--neon-blue);
+      animation: eq-bounce 0.5s infinite alternate ease-in;
+    }
+    .eq-bar:nth-child(1) { height: 100%; animation-delay: 0.1s; background: var(--neon-blue); box-shadow: 0 0 10px var(--neon-blue); }
+    .eq-bar:nth-child(2) { height: 60%; animation-delay: 0.3s; background: var(--neon-purple); box-shadow: 0 0 10px var(--neon-purple); }
+    .eq-bar:nth-child(3) { height: 80%; animation-delay: 0.0s; background: var(--neon-green); box-shadow: 0 0 10px var(--neon-green); }
+    .eq-bar:nth-child(4) { height: 40%; animation-delay: 0.4s; background: var(--neon-orange); box-shadow: 0 0 10px var(--neon-orange); }
+    .eq-bar:nth-child(5) { height: 90%; animation-delay: 0.2s; background: var(--neon-yellow); box-shadow: 0 0 10px var(--neon-yellow); }
+    
+    footer { display:none; margin-top: auto; padding: 1em 0; width: 100%; text-align: center;}
+    .footer-content { display: inline-block; padding: 0.8em 2em; background: rgba(0,0,0,0.6); border: 1px solid #333; border-radius: 8px; color: #888; }
+    .footer-content a { color: var(--neon-blue); text-decoration: none; text-shadow: 0 0 5px var(--neon-blue); }
+
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes pop-in { 0% { opacity: 0; transform: scale(0.8) translateY(20px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+    @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-10px); } 50% { transform: translateX(10px); } 75% { transform: translateX(-10px); } }
+    @keyframes pulse { from { opacity: 0.6; transform: scale(0.95); } to { opacity: 1; transform: scale(1.05); } }
+    @keyframes eq-bounce { 0% { height: 20%; } 100% { height: 100%; } }
+
+    @media (max-width: 600px) {
+      #choices { grid-template-columns: 1fr; }
+      h1 { font-size: 2em; }
+    }
+</style>
 </head>
-<body>
-  <canvas id="bg-canvas"></canvas>
-  
+<body>\n  <canvas id="bg-canvas"></canvas>
+  <div id="loading-overlay"><p>Now loading...</p></div>
+  <main>
+    <h1>Blue Archive<br>イントロクイズ</h1>
+
+    <div id="main-menu"></div>
+    
+    <div id="game-view">
+        <div id="progress-container">
+            <span id="progress-text"></span>
+            <div class="progress-bar-wrapper"><div id="progress-bar-fill"></div></div>
+        </div>
+        
+        <p id="current-song-name"></p>
+
+        <p id="score"></p>
+        <p id="time-display"></p>
+        <div id="player"></div>
+        <div id="choices"></div>
+        <p id="result"></p>
+        <div id="answer-details"></div>
+        <div id="game-controls-container">
+          <div style="margin: 0.5em 0;">音量: <input type="range" id="volumeSlider" min="0" max="100" value="25" /></div>
+          <div id="control-buttons">
+            <button id="replayBtn">もう一度聞く</button>
+            <button id="pauseBtn">再生</button>
+            <button onclick="initGame()" style="background-color: var(--grey-dark);">ホームに戻る</button>
+          </div>
+        </div>
+    </div>
+    
+    <div id="sound-archive-screen" class="screen">
+        <h2>サウンドアーカイブ</h2>
+        <div id="archive-controls">
+            <input type="text" id="archive-search" placeholder="曲名、作曲者、関連キーワードで検索..." />
+            <button id="archive-back-btn" style="padding: 0.5em 1em; font-size: 1.1em; background-color: var(--blue-primary); color: white;">戻る</button>
+        </div>
+        <div id="archive-grid"></div>
+    </div>
+    
+    <div id="encyclopedia" class="screen"></div>
+    <div id="settings-screen" class="screen"></div>
+    <div id="stats-screen" class="screen"></div>
+    <div id="start-prompt" style="display: none;"><button id="start-prompt-btn">タップして開始</button></div>
+  </main>
+
+  <footer>
+    <div style="border: 1px solid var(--border-color); padding: 1em; background-color: #fff; border-radius: 12px; box-shadow: var(--shadow);">
+      問い合わせは <a class="footer-link" href="https://x.com/TakoyakiAK47" target="_blank">たこやき</a> までDMお願いします。
+    </div>
+  </footer>
+
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="playlist.js"></script>
+  <script src="main.js"></script>
+
   <script>
-    // 幾何学模様のパーティクル(くるくる回る回転ネオン三角形)
+    // 幾何学模様のパーティクル(Geometric Particles)
     const canvas = document.getElementById('bg-canvas');
     const ctx = canvas.getContext('2d');
     let width, height;
@@ -263,45 +466,31 @@
       constructor() {
         this.x = Math.random() * width;
         this.y = Math.random() * height;
-        this.vx = (Math.random() - 0.5) * 1.2;
-        this.vy = (Math.random() - 0.5) * 1.2;
-        this.radius = Math.random() * 3 + 2; // 三角形のサイズ基準
-        this.angle = Math.random() * Math.PI * 2; // 初期回転角度
-        this.va = (Math.random() - 0.5) * 0.03; // 自転の回転速度
+        this.vx = (Math.random() - 0.5) * 1.5;
+        this.vy = (Math.random() - 0.5) * 1.5;
+        this.radius = Math.random() * 2 + 1;
         this.color = colors[Math.floor(Math.random() * colors.length)];
       }
       update() {
         this.x += this.vx;
         this.y += this.vy;
-        this.angle += this.va;
         if (this.x < 0 || this.x > width) this.vx *= -1;
         if (this.y < 0 || this.y > height) this.vy *= -1;
       }
       draw() {
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.angle);
         ctx.beginPath();
-        
-        // 中心から綺麗な正三角形を描画
-        const r = this.radius * 3;
-        ctx.moveTo(0, -r);
-        ctx.lineTo(r * 0.866, r * 0.5);
-        ctx.lineTo(-r * 0.866, r * 0.5);
-        ctx.closePath();
-        
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         ctx.fillStyle = this.color;
-        ctx.shadowBlur = 12;
+        ctx.shadowBlur = 10;
         ctx.shadowColor = this.color;
         ctx.fill();
-        ctx.restore();
         ctx.shadowBlur = 0;
       }
     }
 
     function initParticles() {
       particles = [];
-      const numParticles = Math.min(Math.floor((width * height) / 12000), 80);
+      const numParticles = Math.min(Math.floor((width * height) / 10000), 100);
       for (let i = 0; i < numParticles; i++) {
         particles.push(new Particle());
       }
@@ -315,16 +504,16 @@
         particles[i].update();
         particles[i].draw();
         
-        // 三角形同士を光のネットワーク線でつなぐ
+        // 線でつなぐ
         for (let j = i + 1; j < particles.length; j++) {
           const dx = particles[i].x - particles[j].x;
           const dy = particles[i].y - particles[j].y;
           const dist = Math.sqrt(dx * dx + dy * dy);
           
-          if (dist < 130) {
+          if (dist < 120) {
             ctx.beginPath();
             ctx.strokeStyle = particles[i].color;
-            ctx.globalAlpha = 1 - dist / 130;
+            ctx.globalAlpha = 1 - dist / 120;
             ctx.lineWidth = 1;
             ctx.moveTo(particles[i].x, particles[i].y);
             ctx.lineTo(particles[j].x, particles[j].y);
@@ -337,7 +526,28 @@
     }
     animate();
 
-    // イコライザー制御用のMutationObserverなど（中略）
+    // 曲再生時にイコライザーを表示する処理の拡張
+    // DOM要素の監視をして、current-song-nameが表示されているときにEQを追加する簡易処理
+    const songNameEl = document.getElementById('current-song-name');
+    const eqHTML = `<div class="equalizer" id="dj-eq"><div class="eq-bar"></div><div class="eq-bar"></div><div class="eq-bar"></div><div class="eq-bar"></div><div class="eq-bar"></div></div>`;
+    
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+          if (songNameEl.style.display === 'block') {
+            if (!document.getElementById('dj-eq')) {
+              songNameEl.insertAdjacentHTML('beforebegin', eqHTML);
+            }
+          } else {
+            const eq = document.getElementById('dj-eq');
+            if(eq) eq.remove();
+          }
+        }
+      });
+    });
+    if(songNameEl) {
+      observer.observe(songNameEl, { attributes: true });
+    }
   </script>
-</body>
+ </body>
 </html>

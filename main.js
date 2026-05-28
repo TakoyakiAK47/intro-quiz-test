@@ -778,11 +778,7 @@ function updateProgressIndicator() {
         if (domElements.progressBarFill) domElements.progressBarFill.style.width = `${(gameState.totalQuestions / maxQ) * 100}%`;
         container.style.display = 'block';
         if (domElements.progressBarWrapper) domElements.progressBarWrapper.style.display = 'block';
-    } else if (gameState.mode === GAME_MODES.ENDLESS || gameState.mode === GAME_MODES.COMPOSER_QUIZ) {
-        if (domElements.progressText) domElements.progressText.textContent = `連続正解数: ${gameState.endlessStreak}`;
-        container.style.display = 'block';
-        if (domElements.progressBarWrapper) domElements.progressBarWrapper.style.display = 'none';
-    }
+    } 
 }
 
 function updateTimeDisplay(ms) {

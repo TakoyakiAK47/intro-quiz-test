@@ -736,7 +736,7 @@ function showStatsScreen() {
             ${achievementsHTML}
         </div>
         <button id="stats-back-btn">ホームに戻る</button>
-        <button id="reset-data-btn" style="background-color: var(--red-primary); color:white;">データリセット</button>
+        <button id="reset-data-btn">データリセット</button>
     `;
 
     document.getElementById('stats-back-btn').onclick = initGame;
@@ -762,6 +762,7 @@ function updateScore() {
         scoreText = `Score: ${gameState.score}`;
     } else {
         const highScore = (gameState.mode === GAME_MODES.COMPOSER_QUIZ) ? (gameData.stats.highScores.composer_quiz || 0) : (gameData.stats.highScores.endless || 0);
+        scoreText = `最高記録 : ${highScore} \n スコア : ${gameState.endlessStreak}`;
     }
     domElements.score.innerText = scoreText;
 }

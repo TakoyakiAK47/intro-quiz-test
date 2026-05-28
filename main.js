@@ -283,8 +283,7 @@ function showSoundArchive() {
             const card = document.createElement('div');
             card.className = 'archive-card';
             
-            const contextDisplay = song.context ? song.context.replace(/
-/g, '<br>') : '';
+            const contextDisplay = song.context ? song.context.replace(/\n/g, '<br>') : '';
 
             card.innerHTML = `
                 <img class="archive-card-thumb" src="${song.imageUrl}" alt="${song.title}" loading="lazy">
@@ -367,9 +366,6 @@ function loadNextQuiz() {
     }
     
     gameState.answerChecked = false;
-
-    // 音量バーとコントロールボタンを含むコンテナを丸ごと再表示
-    if (domElements.gameControlsContainer) domElements.gameControlsContainer.style.display = 'block';
 
     if (domElements.result) domElements.result.innerText = '';
     if (domElements.answerDetails) {
@@ -489,9 +485,6 @@ function checkAnswer(selectedChoice) {
     if (gameState.answerChecked) return;
     gameState.answerChecked = true;
     
-    // 回答選択時に音量バーとコントロールボタンのコンテナを丸ごと非表示にして枠ごと消去
-    if (domElements.gameControlsContainer) domElements.gameControlsContainer.style.display = 'none';
-
     if (player && typeof player.stopVideo === 'function') {
         player.stopVideo();
     }
@@ -515,8 +508,7 @@ function checkAnswer(selectedChoice) {
     }
 
     if (correctSongObject && domElements.answerDetails) {
-        const contextParts = correctSongObject.context ? correctSongObject.context.split('
-') : ["", ""];
+        const contextParts = correctSongObject.context ? correctSongObject.context.split('\n') : ["", ""];
         const ostInfo = contextParts[0] ? contextParts[0].trim() : "OST不明";
         const memoInfo = contextParts[1] ? contextParts[1].replace(/メモロビ:\s*/g, '').replace(/「準備中」/g, '').trim() : "";
         
@@ -527,8 +519,7 @@ function checkAnswer(selectedChoice) {
             displayHint += ` メモロビ: ${memoInfo}`;
         }
         
-        domElements.answerDetails.innerHTML = displayHint.replace(/
-/g, '<br>');
+        domElements.answerDetails.innerHTML = displayHint.replace(/\n/g, '<br>');
         domElements.answerDetails.style.display = 'block';
     }
     

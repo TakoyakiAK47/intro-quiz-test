@@ -132,38 +132,117 @@
         0 5px 0 rgba(0, 0, 0, 0.1);
     }
 
+    /* --- スタイリッシュなひし形（平行四辺形）ボタンのカスタムCSS --- */
     button, .yt-button { 
       font-family: 'Noto Sans JP', sans-serif; 
       font-size: 1.6em; 
       font-weight: 600; 
       cursor: pointer; 
-      border-radius: 12px; 
-      border: 1px solid rgba(0, 0, 0, 0.1); 
       padding: 0.8em 1.5em; 
       margin: 0.4em; 
-      transition: all 0.2s ease-in-out; 
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08); 
       display: inline-flex; 
       align-items: center; 
       justify-content: center; 
       gap: 0.5em; 
       white-space: normal; 
       line-height: 1.4; 
-      background-color: rgba(255, 255, 255, 0.92); 
       color: var(--text-dark); 
       text-decoration: none; 
+      
+      /* 背景と枠線は疑似要素で表現するため透明化 */
+      position: relative;
+      background: transparent !important;
+      border: none !important;
+      outline: none;
+      z-index: 1;
+      transition: transform 0.2s ease-in-out; 
     }
     
-    button:hover, .yt-button:hover { transform: translateY(-3px); box-shadow: 0 8px 12px rgba(0, 0, 0, 0.12); filter: brightness(1.02); }
-    button:active, .yt-button:active { transform: translateY(-1px) scale(0.98); box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08); }
+    /* 傾いた背景の土台 */
+    button::before, .yt-button::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(255, 255, 255, 0.92); 
+      border: 1px solid rgba(0, 0, 0, 0.1); 
+      border-radius: 6px; /* 緩やかな角丸 */
+      transform: skewX(-15deg); /* ひし形（平行四辺形）に傾ける */
+      z-index: -1;
+      transition: all 0.2s ease-in-out;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08);
+    }
+    
+    /* ホバー時の挙動 */
+    button:hover, .yt-button:hover { 
+      transform: translateY(-3px); 
+    }
+    button:hover::before, .yt-button:hover::before { 
+      box-shadow: 0 8px 12px rgba(0, 0, 0, 0.12); 
+      filter: brightness(1.02); 
+    }
+    
+    /* クリック時の挙動 */
+    button:active, .yt-button:active { 
+      transform: translateY(-1px) scale(0.98); 
+    }
+    button:active::before, .yt-button:active::before { 
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08); 
+      filter: brightness(0.95);
+    }
+    
+    /* クイズ正解時の状態 */
+    button.correct { 
+      color: var(--text-light) !important; 
+      transform: scale(1.05); 
+    }
+    button.correct::before {
+      background-color: var(--green-primary) !important; 
+      border-color: var(--green-dark) !important; 
+    }
+    
+    /* クイズ不正解時の状態 */
+    button.incorrect { 
+      color: var(--text-light) !important; 
+      animation: shake 0.4s; 
+    }
+    button.incorrect::before {
+      background-color: var(--red-primary) !important; 
+      border-color: var(--red-dark) !important; 
+    }
+
+    /* コントロールボタンエリアの装飾 */
+    #control-buttons button {
+      color: var(--text-light) !important;
+    }
+    #control-buttons button::before {
+      background-color: var(--grey-mid) !important;
+    }
+    #control-buttons button[onclick="initGame()"]::before {
+      background-color: var(--grey-dark) !important;
+    }
+
+    /* スタート画面のボタン装飾 */
+    #start-prompt button { 
+      color: var(--text-light) !important;
+      font-weight: 700;
+    }
+    #start-prompt button::before {
+      background-color: var(--blue-primary) !important;
+    }
+
+    /* サウンドアーカイブ戻るボタンの装飾 */
+    #archive-back-btn {
+      color: var(--text-light) !important;
+    }
+    #archive-back-btn::before {
+      background-color: var(--blue-primary) !important;
+    }
+    /* --- カスタムCSS終了 --- */
     
     #choices, #main-menu { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 800px; gap: 0.5em; }
     #main-menu { margin-top: 3em; } 
     #choices button, #main-menu button { width: 95%; max-width: 600px; }
-    button.correct { background-color: var(--green-primary) !important; color: var(--text-light) !important; border-color: var(--green-dark) !important; transform: scale(1.05); }
-    button.incorrect { background-color: var(--red-primary) !important; color: var(--text-light) !important; border-color: var(--red-dark) !important; animation: shake 0.4s; }
     #control-buttons { display: flex; flex-wrap: wrap; gap: 0.75em; justify-content: center; margin-top: 1em; }
-    #control-buttons button { background-color: var(--grey-mid); color: var(--text-light); border: none; }
 
     .screen { 
       display: none; 
@@ -285,10 +364,6 @@
     #start-prompt button { 
       padding: 1.5em 3em; 
       font-size: clamp(1.2em, 5vw, 2em); 
-      background-color: var(--blue-primary); 
-      color: white; 
-      border: none; 
-      font-weight: 700;
     }
 
     #stats-screen .stats-grid { display: grid; grid-template-columns: 1fr; gap: 2em; text-align: left; }
@@ -297,12 +372,6 @@
       -webkit-tap-highlight-color: transparent;
       user-select: none;
       -webkit-user-select: none;
-    }
-
-    button:active:not(.correct):not(.incorrect), .yt-button:active {
-        transform: translateY(-1px) scale(0.98);
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08);
-        filter: brightness(0.95); 
     }
 
     @media (hover: none) {
@@ -389,7 +458,7 @@
           <div id="control-buttons">
             <button id="replayBtn">もう一度聞く</button>
             <button id="pauseBtn">再生</button>
-            <button onclick="initGame()" style="background-color: var(--grey-dark);">ホームに戻る</button>
+            <button onclick="initGame()">ホームに戻る</button>
           </div>
         </div>
     </div>
@@ -398,7 +467,7 @@
         <h2>サウンドアーカイブ</h2>
         <div id="archive-controls">
             <input type="text" id="archive-search" placeholder="曲名、作曲者、関連キーワードで検索..." />
-            <button id="archive-back-btn" style="padding: 0.5em 1em; font-size: 1.1em; background-color: var(--blue-primary); color: white;">戻る</button>
+            <button id="archive-back-btn" style="padding: 0.5em 1em; font-size: 1.1em;">戻る</button>
         </div>
         <div id="archive-grid"></div>
     </div>

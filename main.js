@@ -762,7 +762,6 @@ function updateScore() {
         scoreText = `Score: ${gameState.score}`;
     } else {
         const highScore = (gameState.mode === GAME_MODES.COMPOSER_QUIZ) ? (gameData.stats.highScores.composer_quiz || 0) : (gameData.stats.highScores.endless || 0);
-        scoreText = `High Score: ${highScore} | Current: ${gameState.endlessStreak}`;
     }
     domElements.score.innerText = scoreText;
 }

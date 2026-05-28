@@ -69,7 +69,6 @@
     .progress-bar-wrapper { width: 100%; background-color: #e9ecef; border-radius: 8px; height: 12px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1); }
     #progress-bar-fill { width: 0%; height: 100%; background: linear-gradient(90deg, var(--blue-primary), var(--blue-secondary)); transition: width 0.4s ease-in-out; }
     
-    /* 演出強化箇所: 現在の曲名表示用スタイル（サイズ・位置は完全維持） */
     #current-song-name {
       display: none; 
       font-size: clamp(1.8em, 6vw, 2.8em);
@@ -79,11 +78,11 @@
       text-shadow: 
         -2px -2px 0 #ffffff, 2px -2px 0 #ffffff, 
         -2px 2px 0 #ffffff, 2px 2px 0 #ffffff,
-        0 6px 0 rgba(135, 206, 250, 0.5), /* 影の色味のみブルアカ風の青に微調整 */
+        0 6px 0 rgba(135, 206, 250, 0.5),
         0 8px 0 rgba(0, 0, 0, 0.1);
       word-break: break-all;
       line-height: 1.2;
-      /* アニメーションに弾力を追加 */
+      
       animation: pop-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
 
@@ -185,7 +184,6 @@
     .setting-item label { margin-right: 0.5em; font-weight: 500; }
     .setting-item input, .setting-item select { padding: 0.5em; font-size: 1em; border-radius: 8px; border: 1px solid var(--border-color); }
 
-    /* --- Sound Archive Specific Styles --- */
     #sound-archive-screen { max-width: 1200px; }
     
     #archive-controls {
@@ -277,8 +275,6 @@
         white-space: pre-wrap;
     }
 
-    /* ------------------------------------- */
-
     #loading-overlay, #start-prompt { 
       position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
       background: rgba(0, 0, 0, 0.7); 
@@ -327,7 +323,7 @@
     a.footer-link { text-decoration: none; color: var(--blue-primary); font-weight: 500; }
 
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    /* アニメーション演出の強化：弾みを加える */
+    
     @keyframes pop-in { 
       0% { opacity: 0; transform: scale(0.5); } 
       70% { transform: scale(1.05); } 
